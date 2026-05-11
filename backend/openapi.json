@@ -1,0 +1,5962 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "NEXTAN Costing & Quote Generator API",
+    "description": "Internal costing sheets and client-facing branded quote exports.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login",
+        "description": "Purpose: Authenticate a user and return JWT access + refresh token pair.\nInputs: LoginRequest (username, password)\nOutputs: TokenPair\nOwner: [Claude]",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh Token",
+        "description": "Purpose: Exchange a valid refresh token for a new access token.\nInputs: TokenRefreshRequest (refresh_token)\nOutputs: AccessToken\nOwner: [Claude]",
+        "operationId": "refresh_token_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessToken"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get Me",
+        "description": "Purpose: Return the authenticated user's profile.\nInputs: JWT Bearer token (via dependency)\nOutputs: UserRead\nOwner: [Claude]",
+        "operationId": "get_me_api_v1_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/organisations": {
+      "get": {
+        "tags": [
+          "Organisations"
+        ],
+        "summary": "List Organisations",
+        "description": "Purpose: List all active (non-deleted) organisations; supports optional name search.\nInputs: q (Optional[str]) \u2014 name substring filter\nOutputs: list[OrganisationRead]\nOwner: [Claude]",
+        "operationId": "list_organisations_api_v1_organisations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Name search filter",
+              "title": "Q"
+            },
+            "description": "Name search filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganisationRead"
+                  },
+                  "title": "Response List Organisations Api V1 Organisations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Organisations"
+        ],
+        "summary": "Create Organisation",
+        "description": "Purpose: Create a new organisation in the shared client database.\nInputs: OrganisationCreate (name, address)\nOutputs: OrganisationRead\nOwner: [Claude]",
+        "operationId": "create_organisation_api_v1_organisations_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganisationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/autocomplete": {
+      "get": {
+        "tags": [
+          "Organisations"
+        ],
+        "summary": "Autocomplete Organisations",
+        "description": "Purpose: Typeahead autocomplete \u2014 returns id+name only for lightweight dropdown.\nInputs: q (str) \u2014 search prefix\nOutputs: list[OrganisationAutocomplete]\nOwner: [Claude]",
+        "operationId": "autocomplete_organisations_api_v1_organisations_autocomplete_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganisationAutocomplete"
+                  },
+                  "title": "Response Autocomplete Organisations Api V1 Organisations Autocomplete Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{org_id}": {
+      "get": {
+        "tags": [
+          "Organisations"
+        ],
+        "summary": "Get Organisation",
+        "description": "Purpose: Retrieve a single organisation by ID (active only).\nInputs: org_id (str UUID path param)\nOutputs: OrganisationRead\nOwner: [Claude]",
+        "operationId": "get_organisation_api_v1_organisations__org_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Organisations"
+        ],
+        "summary": "Update Organisation",
+        "description": "Purpose: Update name or address of an organisation.\nInputs: org_id (str UUID), OrganisationUpdate (name, address \u2014 both optional)\nOutputs: OrganisationRead\nOwner: [Claude]",
+        "operationId": "update_organisation_api_v1_organisations__org_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganisationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Organisations"
+        ],
+        "summary": "Delete Organisation",
+        "description": "Purpose: Soft-delete an organisation (set deleted_at). FK on CostingSheet remains intact.\n         Hard delete is blocked to protect CostingSheet relational history.\nInputs: org_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_organisation_api_v1_organisations__org_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{org_id}/contacts": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "List Contacts",
+        "description": "Purpose: List all active contacts for an organisation.\nInputs: org_id (str UUID path param)\nOutputs: list[ContactRead]\nOwner: [Claude]",
+        "operationId": "list_contacts_api_v1_organisations__org_id__contacts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactRead"
+                  },
+                  "title": "Response List Contacts Api V1 Organisations  Org Id  Contacts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Create Contact",
+        "description": "Purpose: Create a new contact within an organisation.\nInputs: org_id (str UUID), ContactCreate (name, email, phone)\nOutputs: ContactRead\nOwner: [Claude]",
+        "operationId": "create_contact_api_v1_organisations__org_id__contacts_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{org_id}/contacts/autocomplete": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Autocomplete Contacts",
+        "description": "Purpose: Typeahead autocomplete for contacts within an organisation.\nInputs: org_id (str UUID), q (str) \u2014 name search prefix\nOutputs: list[ContactAutocomplete]\nOwner: [Claude]",
+        "operationId": "autocomplete_contacts_api_v1_organisations__org_id__contacts_autocomplete_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Org Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactAutocomplete"
+                  },
+                  "title": "Response Autocomplete Contacts Api V1 Organisations  Org Id  Contacts Autocomplete Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contacts/{contact_id}": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Get Contact",
+        "description": "Purpose: Get a single contact by ID (active only).\nInputs: contact_id (str UUID)\nOutputs: ContactRead\nOwner: [Claude]",
+        "operationId": "get_contact_api_v1_contacts__contact_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Contact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Update Contact",
+        "description": "Purpose: Update a contact's name, email, or phone.\nInputs: contact_id (str UUID), ContactUpdate\nOutputs: ContactRead\nOwner: [Claude]",
+        "operationId": "update_contact_api_v1_contacts__contact_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Contact Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Delete Contact",
+        "description": "Purpose: Soft-delete a contact (set deleted_at). FK on CostingSheet remains intact.\nInputs: contact_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_contact_api_v1_contacts__contact_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Contact Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costing-sheets": {
+      "post": {
+        "tags": [
+          "Costing Sheets"
+        ],
+        "summary": "Create Costing Sheet",
+        "description": "Purpose: Create a new costing sheet. Atomically reserves the next ref number\n         for this user in the current month via INSERT...ON CONFLICT DO UPDATE.\nInputs: CostingSheetCreate\nOutputs: CostingSheetRead\nOwner: [Claude]",
+        "operationId": "create_costing_sheet_api_v1_costing_sheets_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostingSheetCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostingSheetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Costing Sheets"
+        ],
+        "summary": "List Costing Sheets",
+        "description": "Purpose: List the authenticated user's costing sheets with optional filters.\nInputs: client_name, ref_number, date_from, date_to (all optional query params)\nOutputs: list[CostingSheetList]\nOwner: [Claude]",
+        "operationId": "list_costing_sheets_api_v1_costing_sheets_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Client Name"
+            }
+          },
+          {
+            "name": "ref_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ref Number"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CostingSheetList"
+                  },
+                  "title": "Response List Costing Sheets Api V1 Costing Sheets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costing-sheets/{sheet_id}": {
+      "get": {
+        "tags": [
+          "Costing Sheets"
+        ],
+        "summary": "Get Costing Sheet",
+        "description": "Purpose: Get a single costing sheet with its scenarios (line items loaded separately).\nInputs: sheet_id (str UUID)\nOutputs: CostingSheetRead\nOwner: [Claude]",
+        "operationId": "get_costing_sheet_api_v1_costing_sheets__sheet_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostingSheetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Costing Sheets"
+        ],
+        "summary": "Update Costing Sheet",
+        "description": "Purpose: Update costing sheet header and terms fields.\nInputs: sheet_id (str UUID), CostingSheetUpdate\nOutputs: CostingSheetRead\nOwner: [Claude]",
+        "operationId": "update_costing_sheet_api_v1_costing_sheets__sheet_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostingSheetUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostingSheetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Costing Sheets"
+        ],
+        "summary": "Delete Costing Sheet",
+        "description": "Purpose: Delete a costing sheet. Blocked with 409 if any QuoteExport records exist.\nInputs: sheet_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_costing_sheet_api_v1_costing_sheets__sheet_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costing-sheets/{sheet_id}/duplicate": {
+      "post": {
+        "tags": [
+          "Costing Sheets"
+        ],
+        "summary": "Duplicate Costing Sheet",
+        "description": "Purpose: Duplicate a costing sheet \u2014 new ref number, today's date, all scenarios copied.\nInputs: sheet_id (str UUID)\nOutputs: CostingSheetRead \u2014 the new duplicate sheet\nOwner: [Claude]",
+        "operationId": "duplicate_costing_sheet_api_v1_costing_sheets__sheet_id__duplicate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostingSheetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costing-sheets/{sheet_id}/scenarios": {
+      "post": {
+        "tags": [
+          "Scenarios"
+        ],
+        "summary": "Create Scenario",
+        "description": "Purpose: Create a new scenario within a costing sheet.\nInputs: sheet_id (str UUID), ScenarioCreate\nOutputs: ScenarioRead\nOwner: [Claude]",
+        "operationId": "create_scenario_api_v1_costing_sheets__sheet_id__scenarios_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Scenarios"
+        ],
+        "summary": "List Scenarios",
+        "description": "Purpose: List all scenarios for a costing sheet.\nInputs: sheet_id (str UUID)\nOutputs: list[ScenarioRead]\nOwner: [Claude]",
+        "operationId": "list_scenarios_api_v1_costing_sheets__sheet_id__scenarios_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioRead"
+                  },
+                  "title": "Response List Scenarios Api V1 Costing Sheets  Sheet Id  Scenarios Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenarios/{scenario_id}": {
+      "get": {
+        "tags": [
+          "Scenarios"
+        ],
+        "summary": "Get Scenario",
+        "description": "Purpose: Get a single scenario (line items loaded via separate endpoint).\nInputs: scenario_id (str UUID)\nOutputs: ScenarioRead\nOwner: [Claude]",
+        "operationId": "get_scenario_api_v1_scenarios__scenario_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Scenarios"
+        ],
+        "summary": "Update Scenario",
+        "description": "Purpose: Update scenario name, discount, show_gst, or notes_exclusions.\nInputs: scenario_id (str UUID), ScenarioUpdate\nOutputs: ScenarioRead\nOwner: [Claude]",
+        "operationId": "update_scenario_api_v1_scenarios__scenario_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Scenarios"
+        ],
+        "summary": "Delete Scenario",
+        "description": "Purpose: Delete a scenario. Blocked with 409 if any QuoteExport records exist for it.\nInputs: scenario_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_scenario_api_v1_scenarios__scenario_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenarios/{scenario_id}/line-items": {
+      "post": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Create Line Item",
+        "description": "Purpose: Create a top-level line item or bundle sub-component within a scenario.\nInputs: scenario_id (str UUID), LineItemCreate\nOutputs: LineItemRead with computed pricing\nOwner: [Claude]",
+        "operationId": "create_line_item_api_v1_scenarios__scenario_id__line_items_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineItemCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineItemRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "List Line Items",
+        "description": "Purpose: List all top-level line items for a scenario, with bundle sub-components nested.\n         Uses selectinload(depth=2) to avoid N+1 on bundles.\nInputs: scenario_id (str UUID)\nOutputs: list[LineItemRead] with computed pricing\nOwner: [Claude]",
+        "operationId": "list_line_items_api_v1_scenarios__scenario_id__line_items_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LineItemRead"
+                  },
+                  "title": "Response List Line Items Api V1 Scenarios  Scenario Id  Line Items Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/line-items/{line_item_id}": {
+      "get": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Get Line Item",
+        "description": "Purpose: Get a single line item with computed pricing and sub-components.\nInputs: line_item_id (str UUID)\nOutputs: LineItemRead\nOwner: [Claude]",
+        "operationId": "get_line_item_api_v1_line_items__line_item_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "line_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineItemRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Update Line Item",
+        "description": "Purpose: Update a line item. If the item is a sub-component, clears the parent bundle override\n         atomically in the same transaction.\nInputs: line_item_id (str UUID), LineItemUpdate\nOutputs: LineItemRead with computed pricing\nOwner: [Claude]",
+        "operationId": "update_line_item_api_v1_line_items__line_item_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "line_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineItemUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineItemRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Delete Line Item",
+        "description": "Purpose: Delete a line item. Cascades to sub-components (via DB ON DELETE CASCADE).\nInputs: line_item_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_line_item_api_v1_line_items__line_item_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "line_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/line-items/{line_item_id}/bundle-components": {
+      "post": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Add Bundle Component",
+        "description": "Purpose: Add a sub-component to a bundle parent. Clears parent bundle override.\nInputs: line_item_id (str UUID, bundle parent), LineItemCreate\nOutputs: LineItemRead (the new sub-component)\nOwner: [Claude]",
+        "operationId": "add_bundle_component_api_v1_line_items__line_item_id__bundle_components_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "line_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LineItemCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineItemRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/line-items/{line_item_id}/bundle-override": {
+      "patch": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Set Bundle Override",
+        "description": "Purpose: Set or clear the bundle manual override price.\n         Send bundle_override_price=null to clear the override.\nInputs: line_item_id (str UUID, must be bundle parent), BundleOverridePatch\nOutputs: LineItemRead\nOwner: [Claude]",
+        "operationId": "set_bundle_override_api_v1_line_items__line_item_id__bundle_override_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "line_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundleOverridePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineItemRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenarios/{scenario_id}/line-items/reorder": {
+      "put": {
+        "tags": [
+          "Line Items"
+        ],
+        "summary": "Reorder Line Items",
+        "description": "Purpose: Bulk update display_order for top-level line items in a scenario.\nInputs: scenario_id (str UUID), ReorderRequest (list of {id, display_order})\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "reorder_line_items_api_v1_scenarios__scenario_id__line_items_reorder_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fx/live-rates": {
+      "get": {
+        "tags": [
+          "FX Rates"
+        ],
+        "summary": "Get Live Rates",
+        "description": "Purpose: Return current exchange rates from open.er-api.com (1hr cached).\n         Base currency is always SGD.\nInputs: none\nOutputs: LiveRatesResponse\nOwner: [Claude]",
+        "operationId": "get_live_rates_api_v1_fx_live_rates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveRatesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/costing-sheets/{sheet_id}/fx-overrides": {
+      "get": {
+        "tags": [
+          "FX Rates"
+        ],
+        "summary": "List Fx Overrides",
+        "description": "Purpose: List all FX rate overrides for a costing sheet.\nInputs: sheet_id (str UUID)\nOutputs: list[FXRateOverrideRead]\nOwner: [Claude]",
+        "operationId": "list_fx_overrides_api_v1_costing_sheets__sheet_id__fx_overrides_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FXRateOverrideRead"
+                  },
+                  "title": "Response List Fx Overrides Api V1 Costing Sheets  Sheet Id  Fx Overrides Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "FX Rates"
+        ],
+        "summary": "Create Fx Override",
+        "description": "Purpose: Create or replace an FX override for a currency pair on a sheet.\n         Upserts on (costing_sheet_id, base_currency, target_currency).\nInputs: sheet_id (str UUID), FXRateOverrideCreate\nOutputs: FXRateOverrideRead\nOwner: [Claude]",
+        "operationId": "create_fx_override_api_v1_costing_sheets__sheet_id__fx_overrides_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FXRateOverrideCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FXRateOverrideRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fx-overrides/{override_id}": {
+      "put": {
+        "tags": [
+          "FX Rates"
+        ],
+        "summary": "Update Fx Override",
+        "description": "Purpose: Update the override rate for an FX override record.\nInputs: override_id (str UUID), FXRateOverrideUpdate\nOutputs: FXRateOverrideRead\nOwner: [Claude]",
+        "operationId": "update_fx_override_api_v1_fx_overrides__override_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "override_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Override Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FXRateOverrideUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FXRateOverrideRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "FX Rates"
+        ],
+        "summary": "Delete Fx Override",
+        "description": "Purpose: Delete an FX override. Reverts to live rate for that currency pair.\nInputs: override_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_fx_override_api_v1_fx_overrides__override_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "override_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Override Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costing-sheets/{sheet_id}/tnc-additions": {
+      "get": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "List Sheet Tnc",
+        "description": "Purpose: List sheet-specific T&C bullet points.\nInputs: sheet_id (str UUID)\nOutputs: list[TncRead]\nOwner: [Claude]",
+        "operationId": "list_sheet_tnc_api_v1_costing_sheets__sheet_id__tnc_additions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TncRead"
+                  },
+                  "title": "Response List Sheet Tnc Api V1 Costing Sheets  Sheet Id  Tnc Additions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "Create Sheet Tnc",
+        "description": "Purpose: Add a T&C bullet to a costing sheet.\nInputs: sheet_id (str UUID), TncCreate\nOutputs: TncRead\nOwner: [Claude]",
+        "operationId": "create_sheet_tnc_api_v1_costing_sheets__sheet_id__tnc_additions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TncCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TncRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tnc-additions/{tnc_id}": {
+      "put": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "Update Tnc",
+        "description": "Purpose: Update a sheet-level T&C bullet (bullet_point or display_order).\nInputs: tnc_id (str UUID), TncUpdate\nOutputs: TncRead\nOwner: [Claude]",
+        "operationId": "update_tnc_api_v1_tnc_additions__tnc_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tnc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tnc Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TncUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TncRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "Delete Tnc",
+        "description": "Purpose: Delete a sheet-level T&C bullet.\nInputs: tnc_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_tnc_api_v1_tnc_additions__tnc_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tnc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tnc Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/tnc-additions": {
+      "get": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "List Global Tnc",
+        "description": "Purpose: List global T&C additions (shared across all costing sheets on export).\nInputs: none\nOutputs: list[TncRead]\nOwner: [Claude]",
+        "operationId": "list_global_tnc_api_v1_settings_tnc_additions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TncRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Global Tnc Api V1 Settings Tnc Additions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "Create Global Tnc",
+        "description": "Purpose: Create a new global T&C addition.\nInputs: TncCreate\nOutputs: TncRead\nOwner: [Claude]",
+        "operationId": "create_global_tnc_api_v1_settings_tnc_additions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TncCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TncRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/tnc-additions/{tnc_id}": {
+      "put": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "Update Global Tnc",
+        "description": "Purpose: Update a global T&C addition.\nInputs: tnc_id (str UUID), TncUpdate\nOutputs: TncRead\nOwner: [Claude]",
+        "operationId": "update_global_tnc_api_v1_settings_tnc_additions__tnc_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tnc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tnc Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TncUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TncRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "T&C Additions"
+        ],
+        "summary": "Delete Global Tnc",
+        "description": "Purpose: Delete a global T&C addition.\nInputs: tnc_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_global_tnc_api_v1_settings_tnc_additions__tnc_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tnc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tnc Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenarios/{scenario_id}/exports": {
+      "post": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Create Export",
+        "description": "Purpose: Generate a quote export (DOCX or PDF). Steps:\n         1. Compute snapshot_data and render file (outside DB transaction)\n         2. Upload to Supabase Storage (outside DB transaction)\n         3. INSERT QuoteExport record inside DB transaction (revision_number computed inside txn)\nInputs: scenario_id (str UUID), ExportCreate (file_type)\nOutputs: ExportRead\nOwner: [Claude]",
+        "operationId": "create_export_api_v1_scenarios__scenario_id__exports_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "List Scenario Exports",
+        "description": "Purpose: List exports for a specific scenario.\nInputs: scenario_id (str UUID)\nOutputs: list[ExportRead]\nOwner: [Claude]",
+        "operationId": "list_scenario_exports_api_v1_scenarios__scenario_id__exports_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExportRead"
+                  },
+                  "title": "Response List Scenario Exports Api V1 Scenarios  Scenario Id  Exports Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costing-sheets/{sheet_id}/exports": {
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "List Sheet Exports",
+        "description": "Purpose: List all exports for a costing sheet across all scenarios and file types.\nInputs: sheet_id (str UUID)\nOutputs: list[ExportRead]\nOwner: [Claude]",
+        "operationId": "list_sheet_exports_api_v1_costing_sheets__sheet_id__exports_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExportRead"
+                  },
+                  "title": "Response List Sheet Exports Api V1 Costing Sheets  Sheet Id  Exports Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/{export_id}/download": {
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Download Export",
+        "description": "Purpose: Return a signed Supabase Storage URL for downloading an export file.\nInputs: export_id (str UUID)\nOutputs: ExportDownloadResponse (signed_url, expires_in_seconds, metadata)\nOwner: [Claude]",
+        "operationId": "download_export_api_v1_exports__export_id__download_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportDownloadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/{export_id}": {
+      "delete": {
+        "tags": [
+          "Exports"
+        ],
+        "summary": "Delete Export",
+        "description": "Purpose: Delete an export record and its Supabase Storage file.\n         After deletion, sheet/scenario may become deletable if no exports remain.\nInputs: export_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_export_api_v1_exports__export_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenarios/{scenario_id}/preview": {
+      "get": {
+        "tags": [
+          "Preview"
+        ],
+        "summary": "Preview Scenario",
+        "description": "Purpose: Return a rendered HTML preview of the quote for on-screen display.\n         Same data and template as PDF export. Raw text/html response.\n         Frontend must fetch() with Authorization header and inject via iframe srcdoc.\nInputs: scenario_id (str UUID)\nOutputs: HTML string (text/html)\nOwner: [Claude]",
+        "operationId": "preview_scenario_api_v1_scenarios__scenario_id__preview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "List Products",
+        "description": "Purpose: List active products with optional category and name filters.\nInputs: category (Optional[str]), name (Optional[str])\nOutputs: list[ProductRead]\nOwner: [Claude]",
+        "operationId": "list_products_api_v1_products_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductRead"
+                  },
+                  "title": "Response List Products Api V1 Products Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Create Product",
+        "description": "Purpose: Create a new product in the catalogue.\nInputs: ProductCreate\nOutputs: ProductRead\nOwner: [Claude]",
+        "operationId": "create_product_api_v1_products_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products/{product_id}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Get Product",
+        "description": "Purpose: Get a single product by ID (active only).\nInputs: product_id (str UUID)\nOutputs: ProductRead\nOwner: [Claude]",
+        "operationId": "get_product_api_v1_products__product_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Product Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Update Product",
+        "description": "Purpose: Update a product's fields.\nInputs: product_id (str UUID), ProductUpdate\nOutputs: ProductRead\nOwner: [Claude]",
+        "operationId": "update_product_api_v1_products__product_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Product Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Delete Product",
+        "description": "Purpose: Soft-delete a product. Existing line items using it are unaffected (fields copied on add).\nInputs: product_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_product_api_v1_products__product_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Product Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenario-templates": {
+      "get": {
+        "tags": [
+          "Scenario Templates"
+        ],
+        "summary": "List Templates",
+        "description": "Purpose: List all scenario templates.\nInputs: none\nOutputs: list[TemplateRead]\nOwner: [Claude]",
+        "operationId": "list_templates_api_v1_scenario_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Templates Api V1 Scenario Templates Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Scenario Templates"
+        ],
+        "summary": "Create Template",
+        "description": "Purpose: Create a new scenario template.\nInputs: TemplateCreate\nOutputs: TemplateRead\nOwner: [Claude]",
+        "operationId": "create_template_api_v1_scenario_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/scenario-templates/{template_id}": {
+      "get": {
+        "tags": [
+          "Scenario Templates"
+        ],
+        "summary": "Get Template",
+        "description": "Purpose: Get a template with all its line items.\nInputs: template_id (str UUID)\nOutputs: TemplateRead\nOwner: [Claude]",
+        "operationId": "get_template_api_v1_scenario_templates__template_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Scenario Templates"
+        ],
+        "summary": "Update Template",
+        "description": "Purpose: Update a template's name or notes_exclusions.\nInputs: template_id (str UUID), TemplateUpdate\nOutputs: TemplateRead\nOwner: [Claude]",
+        "operationId": "update_template_api_v1_scenario_templates__template_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Scenario Templates"
+        ],
+        "summary": "Delete Template",
+        "description": "Purpose: Delete a scenario template and all its line items (cascades).\nInputs: template_id (str UUID)\nOutputs: 204 No Content\nOwner: [Claude]",
+        "operationId": "delete_template_api_v1_scenario_templates__template_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenario-templates/{template_id}/apply/{sheet_id}": {
+      "post": {
+        "tags": [
+          "Scenario Templates"
+        ],
+        "summary": "Apply Template",
+        "description": "Purpose: Apply a template to a costing sheet \u2014 copy all template line items and notes\n         into a new Scenario. No FK link to template; changes to template don't affect this sheet.\nInputs: template_id (str UUID), sheet_id (str UUID)\nOutputs: dict with new scenario_id\nOwner: [Claude]",
+        "operationId": "apply_template_api_v1_scenario_templates__template_id__apply__sheet_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sheet Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Apply Template Api V1 Scenario Templates  Template Id  Apply  Sheet Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get All Settings",
+        "description": "Purpose: Return all global settings (logo URL, signature URL).\nInputs: none\nOutputs: list[SettingRead]\nOwner: [Claude]",
+        "operationId": "get_all_settings_api_v1_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SettingRead"
+                  },
+                  "type": "array",
+                  "title": "Response Get All Settings Api V1 Settings Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/{key}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Setting",
+        "description": "Purpose: Update a global setting value by key.\nInputs: key (str path param), SettingUpdate (value: any JSON)\nOutputs: SettingRead\nOwner: [Claude]",
+        "operationId": "update_setting_api_v1_settings__key__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessToken": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token"
+        ],
+        "title": "AccessToken",
+        "description": "Purpose: New access token returned by POST /auth/refresh.\nInputs: N/A (response body)\nOutputs: access_token, token_type\nOwner: [Claude]"
+      },
+      "BundleOverridePatch": {
+        "properties": {
+          "bundle_override_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Override Price"
+          }
+        },
+        "type": "object",
+        "title": "BundleOverridePatch",
+        "description": "Purpose: Body for PATCH /line-items/{line_item_id}/bundle-override.\n         Set bundle_override_price to activate override; send null to clear it.\nInputs: bundle_override_price (Decimal or None)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ComputedLineItemPricing": {
+        "properties": {
+          "cost_sgd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Sgd"
+          },
+          "selling_rate_sgd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selling Rate Sgd"
+          },
+          "line_total_sgd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Total Sgd"
+          }
+        },
+        "type": "object",
+        "title": "ComputedLineItemPricing",
+        "description": "Purpose: Derived pricing values for a single line item.\n         Injected by the router layer after calling pricing_service.compute_line_item_pricing.\nInputs: N/A (computed, not from DB)\nOutputs: cost_sgd, selling_rate_sgd, line_total_sgd\nOwner: [Claude]"
+      },
+      "ContactAutocomplete": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ContactAutocomplete",
+        "description": "Purpose: Lightweight item for contact autocomplete dropdown.\nInputs: N/A (response body)\nOutputs: id, name, email\nOwner: [Claude]"
+      },
+      "ContactCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ContactCreate",
+        "description": "Purpose: Body for POST /organisations/{org_id}/contacts.\nInputs: name, email, phone\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ContactRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "organisation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organisation Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Created By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organisation_id",
+          "name",
+          "created_by_user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ContactRead",
+        "description": "Purpose: Contact details in list and get responses.\nInputs: N/A (response body)\nOutputs: id, organisation_id, name, email, phone, created_by_user_id, timestamps\nOwner: [Claude]"
+      },
+      "ContactUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "type": "object",
+        "title": "ContactUpdate",
+        "description": "Purpose: Body for PUT /contacts/{contact_id}.\nInputs: name, email, phone (all optional)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "CostingSheetCreate": {
+        "properties": {
+          "quote_title": {
+            "type": "string",
+            "title": "Quote Title"
+          },
+          "date": {
+            "type": "null",
+            "title": "Date"
+          },
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "organisation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation Id"
+          },
+          "contact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Id"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "payment_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Term"
+          },
+          "quotation_validity_days": {
+            "type": "integer",
+            "title": "Quotation Validity Days",
+            "default": 90
+          },
+          "lead_time": {
+            "type": "string",
+            "title": "Lead Time",
+            "default": "30 working days"
+          },
+          "local_tax": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Tax"
+          },
+          "warranty": {
+            "type": "string",
+            "title": "Warranty",
+            "default": "12 months standard"
+          },
+          "general_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "General Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quote_title",
+          "client_name"
+        ],
+        "title": "CostingSheetCreate",
+        "description": "Purpose: Body for POST /costing-sheets.\n         ref_number is auto-generated; date defaults to today.\nInputs: quote_title, client_name, organisation_id, contact_id, contact_name,\n        contact_email, payment_term, quotation_validity_days, lead_time,\n        local_tax, warranty, general_notes\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "CostingSheetList": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "ref_number": {
+            "type": "string",
+            "title": "Ref Number"
+          },
+          "quote_title": {
+            "type": "string",
+            "title": "Quote Title"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "ref_number",
+          "quote_title",
+          "date",
+          "client_name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CostingSheetList",
+        "description": "Purpose: Lightweight item for GET /costing-sheets list response.\n         Does not include scenarios or line items.\nInputs: N/A (response body)\nOutputs: id, ref_number, quote_title, date, client_name, contact_name, timestamps\nOwner: [Claude]"
+      },
+      "CostingSheetRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "ref_number": {
+            "type": "string",
+            "title": "Ref Number"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "quote_title": {
+            "type": "string",
+            "title": "Quote Title"
+          },
+          "organisation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation Id"
+          },
+          "client_name": {
+            "type": "string",
+            "title": "Client Name"
+          },
+          "contact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Id"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "payment_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Term"
+          },
+          "quotation_validity_days": {
+            "type": "integer",
+            "title": "Quotation Validity Days"
+          },
+          "lead_time": {
+            "type": "string",
+            "title": "Lead Time"
+          },
+          "local_tax": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Tax"
+          },
+          "warranty": {
+            "type": "string",
+            "title": "Warranty"
+          },
+          "general_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "General Notes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioRead"
+            },
+            "type": "array",
+            "title": "Scenarios",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "ref_number",
+          "date",
+          "quote_title",
+          "client_name",
+          "quotation_validity_days",
+          "lead_time",
+          "warranty",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CostingSheetRead",
+        "description": "Purpose: Full CostingSheet response including nested scenarios.\n         Line items are NOT embedded here \u2014 loaded per-scenario via separate endpoint.\nInputs: N/A (response body)\nOutputs: all header/terms fields + scenarios list\nOwner: [Claude]"
+      },
+      "CostingSheetUpdate": {
+        "properties": {
+          "quote_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote Title"
+          },
+          "date": {
+            "type": "null",
+            "title": "Date"
+          },
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Name"
+          },
+          "organisation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organisation Id"
+          },
+          "contact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Id"
+          },
+          "contact_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Name"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "payment_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Term"
+          },
+          "quotation_validity_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quotation Validity Days"
+          },
+          "lead_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead Time"
+          },
+          "local_tax": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Tax"
+          },
+          "warranty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warranty"
+          },
+          "general_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "General Notes"
+          },
+          "ref_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Number"
+          }
+        },
+        "type": "object",
+        "title": "CostingSheetUpdate",
+        "description": "Purpose: Body for PUT /costing-sheets/{sheet_id}.\n         All fields optional for partial update.\nInputs: any subset of CostingSheet header/terms fields\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ExportCreate": {
+        "properties": {
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_type"
+        ],
+        "title": "ExportCreate",
+        "description": "Purpose: Body for POST /scenarios/{scenario_id}/exports.\nInputs: file_type ('docx' | 'pdf')\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ExportDownloadResponse": {
+        "properties": {
+          "export_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Export Id"
+          },
+          "signed_url": {
+            "type": "string",
+            "title": "Signed Url"
+          },
+          "expires_in_seconds": {
+            "type": "integer",
+            "title": "Expires In Seconds"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "export_id",
+          "signed_url",
+          "expires_in_seconds",
+          "file_type",
+          "revision_number"
+        ],
+        "title": "ExportDownloadResponse",
+        "description": "Purpose: Response for GET /exports/{export_id}/download.\n         Returns a signed Supabase Storage URL valid for a short TTL.\nInputs: N/A (response body)\nOutputs: signed_url, expires_in_seconds, export metadata\nOwner: [Claude]"
+      },
+      "ExportRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "costing_sheet_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Costing Sheet Id"
+          },
+          "scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          },
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exported At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "costing_sheet_id",
+          "scenario_id",
+          "user_id",
+          "revision_number",
+          "file_type",
+          "file_path",
+          "exported_at"
+        ],
+        "title": "ExportRead",
+        "description": "Purpose: QuoteExport record in list responses.\n         Does not include snapshot_data to keep payload small.\nInputs: N/A (response body)\nOutputs: id, costing_sheet_id, scenario_id, user_id, revision_number, file_type, file_path, exported_at\nOwner: [Claude]"
+      },
+      "FXRateOverrideCreate": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "target_currency": {
+            "type": "string",
+            "title": "Target Currency",
+            "default": "SGD"
+          },
+          "override_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Override Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "override_rate"
+        ],
+        "title": "FXRateOverrideCreate",
+        "description": "Purpose: Body for POST /costing-sheets/{sheet_id}/fx-overrides.\n         Upserts: if a record already exists for (sheet_id, base_currency, target_currency),\n         it is replaced.\nInputs: base_currency, override_rate, target_currency (always SGD)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "FXRateOverrideRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "costing_sheet_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Costing Sheet Id"
+          },
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "target_currency": {
+            "type": "string",
+            "title": "Target Currency"
+          },
+          "override_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Override Rate"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "costing_sheet_id",
+          "base_currency",
+          "target_currency",
+          "override_rate",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FXRateOverrideRead",
+        "description": "Purpose: FX override record in list/get responses.\nInputs: N/A (response body)\nOutputs: id, costing_sheet_id, base_currency, target_currency, override_rate, timestamps\nOwner: [Claude]"
+      },
+      "FXRateOverrideUpdate": {
+        "properties": {
+          "override_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Override Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "override_rate"
+        ],
+        "title": "FXRateOverrideUpdate",
+        "description": "Purpose: Body for PUT /fx-overrides/{override_id}.\nInputs: override_rate\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LineItemCreate": {
+        "properties": {
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Qty",
+            "default": "1"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": "unit"
+          },
+          "cost_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Cost Rate",
+            "default": "0"
+          },
+          "cost_currency": {
+            "type": "string",
+            "title": "Cost Currency",
+            "default": "SGD"
+          },
+          "markup_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Markup Pct",
+            "default": "0"
+          },
+          "contingency_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Contingency Pct",
+            "default": "0"
+          },
+          "is_visible": {
+            "type": "boolean",
+            "title": "Is Visible",
+            "default": true
+          },
+          "is_bundle_parent": {
+            "type": "boolean",
+            "title": "Is Bundle Parent",
+            "default": false
+          },
+          "parent_line_item_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Line Item Id"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "section",
+          "description"
+        ],
+        "title": "LineItemCreate",
+        "description": "Purpose: Body for POST /scenarios/{scenario_id}/line-items.\nInputs: section, description, qty, unit, cost_rate, cost_currency,\n        markup_pct, contingency_pct, display_order, sub_specs,\n        is_bundle_parent, parent_line_item_id (for sub-components)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "LineItemRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Id"
+          },
+          "parent_line_item_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Line Item Id"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "qty": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Qty"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "cost_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Rate"
+          },
+          "cost_currency": {
+            "type": "string",
+            "title": "Cost Currency"
+          },
+          "markup_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Markup Pct"
+          },
+          "contingency_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Contingency Pct"
+          },
+          "is_visible": {
+            "type": "boolean",
+            "title": "Is Visible"
+          },
+          "is_bundle_parent": {
+            "type": "boolean",
+            "title": "Is Bundle Parent"
+          },
+          "bundle_override_price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Override Price"
+          },
+          "is_bundle_override_active": {
+            "type": "boolean",
+            "title": "Is Bundle Override Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "computed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComputedLineItemPricing"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sub_components": {
+            "items": {
+              "$ref": "#/components/schemas/LineItemRead"
+            },
+            "type": "array",
+            "title": "Sub Components",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scenario_id",
+          "section",
+          "display_order",
+          "description",
+          "qty",
+          "unit",
+          "cost_rate",
+          "cost_currency",
+          "markup_pct",
+          "contingency_pct",
+          "is_visible",
+          "is_bundle_parent",
+          "is_bundle_override_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "LineItemRead",
+        "description": "Purpose: Full line item response including computed pricing fields.\n         Computed fields (cost_sgd etc.) are injected at the router layer, not from DB.\nInputs: N/A (response body)\nOutputs: all stored fields + ComputedLineItemPricing + sub_components (recursive for bundles)\nOwner: [Claude]"
+      },
+      "LineItemUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "cost_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Rate"
+          },
+          "cost_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Currency"
+          },
+          "markup_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markup Pct"
+          },
+          "contingency_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contingency Pct"
+          },
+          "is_visible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Visible"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "display_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Order"
+          }
+        },
+        "type": "object",
+        "title": "LineItemUpdate",
+        "description": "Purpose: Body for PUT /line-items/{line_item_id}.\n         Sub-component updates automatically clear parent bundle override.\nInputs: all LineItem fields (all optional for partial update)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "LiveRatesResponse": {
+        "properties": {
+          "base": {
+            "type": "string",
+            "title": "Base"
+          },
+          "rates": {
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+            },
+            "type": "object",
+            "title": "Rates"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base",
+          "rates",
+          "cached"
+        ],
+        "title": "LiveRatesResponse",
+        "description": "Purpose: Response for GET /fx/live-rates.\n         Returns current exchange rates from open.er-api.com (1hr cached).\nInputs: N/A (response body)\nOutputs: base, rates dict\nOwner: [Claude]"
+      },
+      "LoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Purpose: Credentials for POST /auth/login.\nInputs: username (str), password (str)\nOutputs: N/A (request body)\nOwner: [Claude]"
+      },
+      "OrganisationAutocomplete": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "OrganisationAutocomplete",
+        "description": "Purpose: Lightweight item for autocomplete dropdown.\nInputs: N/A (response body)\nOutputs: id, name\nOwner: [Claude]"
+      },
+      "OrganisationCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "OrganisationCreate",
+        "description": "Purpose: Body for POST /organisations.\nInputs: name (str), address (Optional[str])\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "OrganisationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Created By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_by_user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OrganisationRead",
+        "description": "Purpose: Organisation details in list and get responses.\nInputs: N/A (response body)\nOutputs: id, name, address, created_by_user_id, created_at, updated_at\nOwner: [Claude]"
+      },
+      "OrganisationUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "title": "OrganisationUpdate",
+        "description": "Purpose: Body for PUT /organisations/{org_id}.\nInputs: name (Optional[str]), address (Optional[str])\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ProductCreate": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "default_cost_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Default Cost Price",
+            "default": "0"
+          },
+          "default_currency": {
+            "type": "string",
+            "title": "Default Currency",
+            "default": "SGD"
+          },
+          "default_unit": {
+            "type": "string",
+            "title": "Default Unit",
+            "default": "unit"
+          },
+          "default_markup_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Default Markup Pct",
+            "default": "0"
+          },
+          "default_contingency_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Default Contingency Pct",
+            "default": "0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "name"
+        ],
+        "title": "ProductCreate",
+        "description": "Purpose: Body for POST /products.\nInputs: category, name, description, sub_specs, default_cost_price,\n        default_currency, default_unit, default_markup_pct, default_contingency_pct\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ProductRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "default_cost_price": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Default Cost Price"
+          },
+          "default_currency": {
+            "type": "string",
+            "title": "Default Currency"
+          },
+          "default_unit": {
+            "type": "string",
+            "title": "Default Unit"
+          },
+          "default_markup_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Default Markup Pct"
+          },
+          "default_contingency_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Default Contingency Pct"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "name",
+          "default_cost_price",
+          "default_currency",
+          "default_unit",
+          "default_markup_pct",
+          "default_contingency_pct",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProductRead",
+        "description": "Purpose: Product record in list/get responses.\nInputs: N/A (response body)\nOutputs: all Product fields (excluding hashed_password, deleted_at)\nOwner: [Claude]"
+      },
+      "ProductUpdate": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "default_cost_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Cost Price"
+          },
+          "default_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Currency"
+          },
+          "default_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Unit"
+          },
+          "default_markup_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Markup Pct"
+          },
+          "default_contingency_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Contingency Pct"
+          }
+        },
+        "type": "object",
+        "title": "ProductUpdate",
+        "description": "Purpose: Body for PUT /products/{product_id}.\nInputs: all fields optional for partial update\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ReorderItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_order"
+        ],
+        "title": "ReorderItem",
+        "description": "Purpose: Single item in a reorder request \u2014 id + new display_order.\nOwner: [Claude]"
+      },
+      "ReorderRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReorderItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ReorderRequest",
+        "description": "Purpose: Body for PUT /scenarios/{scenario_id}/line-items/reorder.\n         Bulk update of display_order for all top-level items in a scenario.\nInputs: items (list of {id, display_order})\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ScenarioCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "discount_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Value"
+          },
+          "show_gst": {
+            "type": "boolean",
+            "title": "Show Gst",
+            "default": false
+          },
+          "notes_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Exclusions"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ScenarioCreate",
+        "description": "Purpose: Body for POST /costing-sheets/{sheet_id}/scenarios.\nInputs: name, discount_type, discount_value, show_gst, notes_exclusions, display_order\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "ScenarioRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "costing_sheet_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Costing Sheet Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "discount_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Value"
+          },
+          "show_gst": {
+            "type": "boolean",
+            "title": "Show Gst"
+          },
+          "notes_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Exclusions"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "totals": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioTotals"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "costing_sheet_id",
+          "name",
+          "show_gst",
+          "display_order",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScenarioRead",
+        "description": "Purpose: Scenario response (without line items \u2014 loaded separately for performance).\nInputs: N/A (response body)\nOutputs: all Scenario fields + optional totals\nOwner: [Claude]"
+      },
+      "ScenarioTotals": {
+        "properties": {
+          "subtotal_sgd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Subtotal Sgd"
+          },
+          "discount_amount_sgd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Discount Amount Sgd"
+          },
+          "total_before_gst_sgd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Before Gst Sgd"
+          },
+          "gst_amount_sgd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Gst Amount Sgd"
+          },
+          "grand_total_sgd": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Grand Total Sgd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subtotal_sgd",
+          "discount_amount_sgd",
+          "total_before_gst_sgd",
+          "gst_amount_sgd",
+          "grand_total_sgd"
+        ],
+        "title": "ScenarioTotals",
+        "description": "Purpose: Aggregated totals for a scenario.\n         Computed from all visible line items, applying discount and optional GST.\nInputs: N/A (computed)\nOutputs: subtotal_sgd, discount_amount_sgd, total_before_gst_sgd, gst_amount_sgd, grand_total_sgd\nOwner: [Claude]"
+      },
+      "ScenarioUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "discount_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Type"
+          },
+          "discount_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Value"
+          },
+          "show_gst": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Gst"
+          },
+          "notes_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Exclusions"
+          },
+          "display_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Order"
+          }
+        },
+        "type": "object",
+        "title": "ScenarioUpdate",
+        "description": "Purpose: Body for PUT /scenarios/{scenario_id}.\nInputs: all fields optional\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "SettingRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "value",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SettingRead",
+        "description": "Purpose: GlobalSetting record in list/get responses.\nInputs: N/A (response body)\nOutputs: id, key, value, timestamps\nOwner: [Claude]"
+      },
+      "SettingUpdate": {
+        "properties": {
+          "value": {
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "SettingUpdate",
+        "description": "Purpose: Body for PUT /settings/{key}. Updates a global setting value.\nInputs: value (any JSON-serialisable value)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "TemplateCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "notes_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Exclusions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TemplateCreate",
+        "description": "Purpose: Body for POST /scenario-templates.\nInputs: name, notes_exclusions, template_line_items\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "TemplateLineItemRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "scenario_template_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Template Id"
+          },
+          "parent_template_line_item_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Template Line Item Id"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "sub_specs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Specs"
+          },
+          "qty": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Qty"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "cost_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Rate"
+          },
+          "cost_currency": {
+            "type": "string",
+            "title": "Cost Currency"
+          },
+          "markup_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Markup Pct"
+          },
+          "contingency_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Contingency Pct"
+          },
+          "is_bundle_parent": {
+            "type": "boolean",
+            "title": "Is Bundle Parent"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "sub_components": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateLineItemRead"
+            },
+            "type": "array",
+            "title": "Sub Components",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scenario_template_id",
+          "section",
+          "display_order",
+          "description",
+          "qty",
+          "unit",
+          "cost_rate",
+          "cost_currency",
+          "markup_pct",
+          "contingency_pct",
+          "is_bundle_parent",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TemplateLineItemRead",
+        "description": "Purpose: TemplateLineItem in template get response.\nInputs: N/A (response body)\nOutputs: all TemplateLineItem fields + sub_components (recursive for bundles)\nOwner: [Claude]"
+      },
+      "TemplateRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "notes_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Exclusions"
+          },
+          "template_line_items": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateLineItemRead"
+            },
+            "type": "array",
+            "title": "Template Line Items",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TemplateRead",
+        "description": "Purpose: Full ScenarioTemplate with top-level line items.\nInputs: N/A (response body)\nOutputs: id, name, notes_exclusions, template_line_items, timestamps\nOwner: [Claude]"
+      },
+      "TemplateUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes_exclusions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Exclusions"
+          }
+        },
+        "type": "object",
+        "title": "TemplateUpdate",
+        "description": "Purpose: Body for PUT /scenario-templates/{template_id}.\nInputs: name, notes_exclusions (both optional)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "TncCreate": {
+        "properties": {
+          "bullet_point": {
+            "type": "string",
+            "title": "Bullet Point"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "bullet_point"
+        ],
+        "title": "TncCreate",
+        "description": "Purpose: Body for POST /.../tnc-additions. Creates a new T&C bullet.\nInputs: bullet_point, display_order\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "TncRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bullet_point": {
+            "type": "string",
+            "title": "Bullet Point"
+          },
+          "display_order": {
+            "type": "integer",
+            "title": "Display Order"
+          },
+          "costing_sheet_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costing Sheet Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bullet_point",
+          "display_order",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TncRead",
+        "description": "Purpose: T&C Addition record in list/get responses. Used for both sheet-level\n         (CostingSheetTncAddition) and global (GlobalTncAddition).\nInputs: N/A (response body)\nOutputs: id, bullet_point, display_order, costing_sheet_id (None for global), timestamps\nOwner: [Claude]"
+      },
+      "TncUpdate": {
+        "properties": {
+          "bullet_point": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bullet Point"
+          },
+          "display_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Order"
+          }
+        },
+        "type": "object",
+        "title": "TncUpdate",
+        "description": "Purpose: Body for PUT .../tnc-additions/{id}. Updates a T&C bullet.\nInputs: bullet_point, display_order (both optional)\nOutputs: N/A\nOwner: [Claude]"
+      },
+      "TokenPair": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "TokenPair",
+        "description": "Purpose: Access + refresh token pair returned on successful login.\nInputs: N/A (response body)\nOutputs: access_token, refresh_token, token_type\nOwner: [Claude]"
+      },
+      "TokenRefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "TokenRefreshRequest",
+        "description": "Purpose: Request body for POST /auth/refresh.\nInputs: refresh_token (str)\nOutputs: N/A (request body)\nOwner: [Claude]"
+      },
+      "UserRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "numeric_user_id": {
+            "type": "integer",
+            "title": "Numeric User Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "numeric_user_id",
+          "username",
+          "created_at"
+        ],
+        "title": "UserRead",
+        "description": "Purpose: Authenticated user details returned by GET /users/me.\nInputs: N/A (response body)\nOutputs: id, numeric_user_id, username, created_at\nOwner: [Claude]"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
