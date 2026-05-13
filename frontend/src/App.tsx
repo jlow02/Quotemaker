@@ -9,7 +9,7 @@ import ExportsHistory from './pages/ExportsHistory';
 import Settings from './pages/Settings';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, accessToken } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   if (!isAuthenticated) {
     console.log('[ProtectedRoute] NOT authenticated — redirecting to /login');
     return <Navigate to="/login" replace />;
