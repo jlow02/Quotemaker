@@ -15,7 +15,7 @@ from supabase import create_client, Client
 try:
     from weasyprint import HTML as _WeasyHTML
     _WEASYPRINT_AVAILABLE = True
-except OSError:
+except (OSError, ImportError):
     _WeasyHTML = None  # type: ignore[assignment]
     _WEASYPRINT_AVAILABLE = False
 
