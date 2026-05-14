@@ -58,7 +58,7 @@ const ExportsHistory: React.FC = () => {
     onSuccess: (blobUrl: string, exportId: string) => {
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `export_${exportId}.zip`; // Or actual filename from service
+      a.download = `export_${exportId}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -103,7 +103,7 @@ const ExportsHistory: React.FC = () => {
                 <TableRow key={exp.id}>
                   <TableCell className="font-medium">{exp.scenario_id}</TableCell>
                   <TableCell>{exp.file_type.toUpperCase()}</TableCell>
-                  <TableCell>{exp.exported_at ? new Date(exp.exported_at).toLocaleString() : '—'}</TableCell>
+                  <TableCell>{exp.exported_at ? new Date(exp.exported_at).toLocaleString() : 'N/A'}</TableCell>
                   <TableCell className="text-right flex justify-end space-x-2">
                     <Button
                       variant="outline"
@@ -150,4 +150,4 @@ const ExportsHistory: React.FC = () => {
   );
 };
 
-expo
+export default ExportsHistory;
