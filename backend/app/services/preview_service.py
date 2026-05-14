@@ -80,7 +80,7 @@ We are pleased to submit the following quotation for your consideration.</p>
   </thead>
   <tbody>
   {% for item in line_items %}
-    {% if not item.is_visible %}{% continue %}{% endif %}
+  {% if item.is_visible %}
     {% if item.section != ns.current_section %}
       {% set ns.current_section = item.section %}
       <tr class="section-header"><td colspan="6">{{ item.section }}</td></tr>
@@ -117,13 +117,14 @@ We are pleased to submit the following quotation for your consideration.</p>
       {% endif %}
       {% endfor %}
     {% endif %}
+  {% endif %}
   {% endfor %}
   </tbody>
 </table>
 
 <table class="totals-table">
   <tr><td>Subtotal</td><td style="text-align:right">SGD {{ totals.subtotal_sgd | format_decimal }}</td></tr>
-  {% if totals.discount_amount_sgd > 0 %}
+  {% if totals.discount_amount_sgd | float > 0 %}
   <tr><td>Discount</td><td style="text-align:right">- SGD {{ totals.discount_amount_sgd | format_decimal }}</td></tr>
   {% endif %}
   {% if show_gst %}
@@ -168,7 +169,7 @@ We are pleased to submit the following quotation for your consideration.</p>
 """
 
 _env = Environment(loader=BaseLoader())
-_env.filters["format_decimal"] = lambda v: f"{v:,.2f}" if v is not None else "—"
+_env.filters["format_decimal"] = lambda v: f"{float(v):,.2f}" if v is not None else "—"
 
 
 def render_html_preview(context: dict[str, Any]) -> str:
