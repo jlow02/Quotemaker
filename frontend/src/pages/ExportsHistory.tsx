@@ -103,7 +103,7 @@ const ExportsHistory: React.FC = () => {
                 <TableRow key={exp.id}>
                   <TableCell className="font-medium">{exp.scenario_id}</TableCell>
                   <TableCell>{exp.file_type.toUpperCase()}</TableCell>
-                  <TableCell>{new Date(exp.exported_at).toLocaleString()}</TableCell>
+                  <TableCell>{exp.exported_at ? new Date(exp.exported_at).toLocaleString() : '—'}</TableCell>
                   <TableCell className="text-right flex justify-end space-x-2">
                     <Button
                       variant="outline"
@@ -150,4 +150,4 @@ const ExportsHistory: React.FC = () => {
   );
 };
 
-export default ExportsHistory;
+expo
