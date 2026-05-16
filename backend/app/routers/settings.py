@@ -47,4 +47,7 @@ def upsert_setting(
         setting = GlobalSetting(key=key, value=body.value)
         db.add(setting)
     else:
-    
+        setting.value = body.value
+    db.commit()
+    db.refresh(setting)
+    return setting
