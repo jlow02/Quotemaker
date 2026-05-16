@@ -1,8 +1,8 @@
 """
-Purpose: Global settings endpoints — logo URL, signature URL.
+Purpose: Global settings endpoints — system-wide key-value configuration store.
 Owner: [Claude]
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -20,7 +20,7 @@ def get_all_settings(
     _: User = Depends(get_current_user),
 ):
     """
-    Purpose: Return all global settings (logo URL, signature URL).
+    Purpose: Return all global settings.
     Inputs: none
     Outputs: list[SettingRead]
     Owner: [Claude]
@@ -29,22 +29,22 @@ def get_all_settings(
 
 
 @router.put("/{key}", response_model=SettingRead)
-def update_setting(
+def upsert_setting(
     key: str,
     body: SettingUpdate,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     """
-    Purpose: Update a global setting value by key.
+    Purpose: Create-or-update (upsert) a global setting by key.
+             If the key does not exist it is created; otherwise its value is updated.
     Inputs: key (str path param), SettingUpdate (value: any JSON)
     Outputs: SettingRead
     Owner: [Claude]
     """
     setting = db.query(GlobalSetting).filter(GlobalSetting.key == key).first()
     if not setting:
-        raise HTTPException(status_code=404, detail=f"Setting '{key}' not found.")
-    setting.value = body.value
-    db.commit()
-    db.refresh(setting)
-    return setting
+        setting = GlobalSetting(key=key, value=body.value)
+        db.add(setting)
+    else:
+    
