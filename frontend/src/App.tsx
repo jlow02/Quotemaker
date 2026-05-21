@@ -27,6 +27,7 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/sheets/:sheetId" element={<ProtectedRoute><CostingSheetDetail /></ProtectedRoute>} />
+          <Route path="/sheets/:sheetId/exports" element={<ProtectedRoute><ExportsHistory /></ProtectedRoute>} />
           <Route path="/exports" element={<ProtectedRoute><ExportsHistory /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Routes>
@@ -36,3 +37,12 @@ const App: React.FC = () => {
 };
 
 export default App;
+tedRoute>} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+};
+
+export default App;
+p;
