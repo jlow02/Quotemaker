@@ -85,6 +85,7 @@ const Dashboard = () => {
     },
     onError: (err) => {
       console.error('Failed to create costing sheet:', err);
+      // Optionally set an error message state to display in the modal
     },
   });
 
@@ -183,7 +184,7 @@ const Dashboard = () => {
               <CardContent className="flex items-center justify-between">
                 <Badge variant="outline">{sheet.ref_number}</Badge>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {sheet.created_at ? format(new Date(sheet.created_at), 'MMM dd, yyyy') : 'N/A'}
+                  {sheet.created_at ? format(new Date(sheet.created_at), 'MMM dd, yyyy') : '—'}
                 </span>
               </CardContent>
             </Card>
