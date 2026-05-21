@@ -13,17 +13,28 @@ export type LineItem = {
   section: string;
   display_order: number;
   description: string;
-  sub_specs?: string | null;
+  sub_specs?: string[] | null;
   qty: string;
   unit: string;
   cost_rate: string;
   cost_currency: string;
   markup_pct: string;
-  cost_rate_sgd?: string | null;
+  contingency_pct: string;
+  is_visible: boolean;
+  is_bundle_parent: boolean;
+  is_bundle_override_active?: boolean;
   bundle_override_price?: string | null;
+  /** @deprecated use is_bundle_parent */
   is_bundle?: boolean;
   created_at: string;
   updated_at: string;
+  // Computed at router layer — present in API responses
+  computed?: {
+    cost_sgd?: string | null;
+    selling_rate_sgd?: string | null;
+    line_total_sgd?: string | null;
+  } | null;
+  sub_components?: LineItem[];
 };
 
 
@@ -847,50 +858,10 @@ export async function createLineItem(
  */
 export async function listLineItems(
   scenarioId: string
-): Promise<
-  {
-    id: string;
-    scenario_id: string;
-    parent_line_item_id?: string | null;
-    section: string;
-    display_order: number;
-    description: string;
-    sub_specs?: string | null;
-    qty: string;
-    unit: string;
-    cost_rate: string;
-    cost_currency: string;
-    markup_pct: string;
-    contingency_pct: string;
-    is_visible: boolean;
-    is_bundle_parent: boolean;
-    bundle_override_price?: string | null;
-    created_at: string;
-    updated_at: string;
-  }[]
-> {
-  const response = await apiClient.get<
-    {
-      id: string;
-      scenario_id: string;
-      parent_line_item_id?: string | null;
-      section: string;
-      display_order: number;
-      description: string;
-      sub_specs?: string | null;
-      qty: string;
-      unit: string;
-      cost_rate: string;
-      cost_currency: string;
-      markup_pct: string;
-      contingency_pct: string;
-      is_visible: boolean;
-      is_bundle_parent: boolean;
-      bundle_override_price?: string | null;
-      created_at: string;
-      updated_at: string;
-    }[]
-  >(`/api/v1/scenarios/${scenarioId}/line-items`);
+): Promise<LineItem[]> {
+  const response = await apiClient.get<LineItem[]>(
+    `/api/v1/scenarios/${scenarioId}/line-items`
+  );
   return response.data;
 }
 
@@ -967,46 +938,10 @@ export async function updateLineItem(
     section?: string | null;
     display_order?: number | null;
   }
-): Promise<{
-  id: string;
-  scenario_id: string;
-  parent_line_item_id?: string | null;
-  section: string;
-  display_order: number;
-  description: string;
-  sub_specs?: string | null;
-  qty: string;
-  unit: string;
-  cost_rate: string;
-  cost_currency: string;
-  markup_pct: string;
-  contingency_pct: string;
-  is_visible: boolean;
-  is_bundle_parent: boolean;
-  bundle_override_price?: string | null;
-  created_at: string;
-  updated_at: string;
-}> {
-  const response = await apiClient.put<{
-    id: string;
-    scenario_id: string;
-    parent_line_item_id?: string | null;
-    section: string;
-    display_order: number;
-    description: string;
-    sub_specs?: string | null;
-    qty: string;
-    unit: string;
-    cost_rate: string;
-    cost_currency: string;
-    markup_pct: string;
-    contingency_pct: string;
-    is_visible: boolean;
-    is_bundle_parent: boolean;
-    bundle_override_price?: string | null;
-    created_at: string;
-    updated_at: string;
-  }>(`/api/v1/line-items/${lineItemId}`, data);
+): Promise<LineItem> {
+  const response = await apiClient.put<LineItem>(
+    `/api/v1/line-items/${lineItemId}`, data
+  );
   return response.data;
 }
 
@@ -1097,46 +1032,10 @@ export async function addBundleComponent(
 export async function setBundleOverride(
   lineItemId: string,
   data: { bundle_override_price?: string | null }
-): Promise<{
-  id: string;
-  scenario_id: string;
-  parent_line_item_id?: string | null;
-  section: string;
-  display_order: number;
-  description: string;
-  sub_specs?: string | null;
-  qty: string;
-  unit: string;
-  cost_rate: string;
-  cost_currency: string;
-  markup_pct: string;
-  contingency_pct: string;
-  is_visible: boolean;
-  is_bundle_parent: boolean;
-  bundle_override_price?: string | null;
-  created_at: string;
-  updated_at: string;
-}> {
-  const response = await apiClient.patch<{
-    id: string;
-    scenario_id: string;
-    parent_line_item_id?: string | null;
-    section: string;
-    display_order: number;
-    description: string;
-    sub_specs?: string | null;
-    qty: string;
-    unit: string;
-    cost_rate: string;
-    cost_currency: string;
-    markup_pct: string;
-    contingency_pct: string;
-    is_visible: boolean;
-    is_bundle_parent: boolean;
-    bundle_override_price?: string | null;
-    created_at: string;
-    updated_at: string;
-  }>(`/api/v1/line-items/${lineItemId}/bundle-override`, data);
+): Promise<LineItem> {
+  const response = await apiClient.patch<LineItem>(
+    `/api/v1/line-items/${lineItemId}/bundle-override`, data
+  );
   return response.data;
 }
 
