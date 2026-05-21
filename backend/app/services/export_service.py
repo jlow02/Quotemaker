@@ -673,4 +673,4 @@ def delete_from_storage(file_path: str) -> None:
         supabase.storage.from_(settings.supabase_storage_bucket_exports).remove([file_path])
     except Exception:
         # Non-fatal: log but don't raise. The DB record deletion is the authoritative action.
- 
+        pass
