@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,8 +22,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Download, Trash2 } from 'lucide-react';
-import { listExportsHistory, downloadExport, deleteExport } from '../api/services';
+import { Loader2, Download, Trash2, ArrowLeft } from 'lucide-react';
+import { listSheetExports, downloadExport, deleteExport } from '../api/services';
 
 interface ExportHistoryItem {
   id: string;
@@ -37,32 +37,35 @@ interface ExportHistoryItem {
 }
 
 /**
- * @purpose Displays a history of exported documents, allowing users to download or delete them.
- * Fetches exports specific to a sheet if `sheetId` is present in the URL,
- * otherwise shows recent exports across all sheets.
- * @param {void}
- * @returns {JSX.Element} A React component displaying the export history.
- * @owner [Gemini]
+ * @purpose Displays exports for a specific costing sheet, allowing users to download or delete them.
+ * Requires sheetId in the URL — accessed via /sheets/:sheetId/exports.
+ * @owner [Claude]
  */
 const ExportsHistory: React.FC = () => {
-  const { sheetId } = useParams<{ sheetId?: string }>();
+  const { sheetId } = useParams<{ sheetId: string }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // All hooks must be called unconditionally — guard clause comes later in render
   const { data: exports, isLoading, isError } = useQuery<ExportHistoryItem[]>({
     queryKey: ['exportsHistory', sheetId],
-    queryFn: () => listExportsHistory(),
+    queryFn: () => listSheetExports(sheetId!),
+    enabled: !!sheetId,
   });
 
   const downloadMutation = useMutation({
-    mutationFn: (exportId: string) => downloadExport(exportId).then(r => r.signed_url),
-    onSuccess: (blobUrl: string, exportId: string) => {
+    mutationFn: (exportId: string) => downloadExport(exportId),
+    onSuccess: (result, exportId) => {
+      const signedUrl = result?.signed_url;
+      if (!signedUrl) {
+        toast({ title: 'Download failed.', description: 'No download URL returned.', variant: 'destructive' });
+        return;
+      }
       const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `export_${exportId}.zip`;
-      document.body.appendChild(a);
+      a.href = signedUrl;
+      a.download = 'export_' + exportId + '.docx';
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
+      a.remove();
       toast({ title: 'Download started successfully.' });
     },
     onError: (error: Error) => toast({ title: 'Download failed.', description: error.message, variant: 'destructive' }),
@@ -77,14 +80,29 @@ const ExportsHistory: React.FC = () => {
     onError: (error: Error) => toast({ title: 'Delete failed.', description: error.message, variant: 'destructive' }),
   });
 
+  // Guard: page is meaningless without a sheetId — placed AFTER all hooks
+  if (!sheetId) {
+    return (
+      <div className="p-6">
+        <p className="text-gray-500">No sheet selected. Please open a costing sheet first.</p>
+        <Button variant="outline" className="mt-4" onClick={() => navigate('/')}>
+          Back to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
   if (isLoading) return <div className="p-4 flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (isError) return <div className="p-4 text-red-600">Failed to load exports.</div>;
 
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">
-        {sheetId ? `Exports for Sheet: ${sheetId}` : 'Recent Exports'}
-      </h1>
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/sheets/' + sheetId)}>
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        </Button>
+        <h1 className="text-3xl font-bold">Export History</h1>
+      </div>
       {exports?.length === 0 ? (
         <p className="text-gray-500">No exports found.</p>
       ) : (
@@ -103,7 +121,7 @@ const ExportsHistory: React.FC = () => {
                 <TableRow key={exp.id}>
                   <TableCell className="font-medium">{exp.scenario_id}</TableCell>
                   <TableCell>{exp.file_type.toUpperCase()}</TableCell>
-                  <TableCell>{exp.exported_at ? new Date(exp.exported_at).toLocaleString() : 'N/A'}</TableCell>
+                  <TableCell>{exp.exported_at ? new Date(exp.exported_at).toLocaleString() : '-'}</TableCell>
                   <TableCell className="text-right flex justify-end space-x-2">
                     <Button
                       variant="outline"
