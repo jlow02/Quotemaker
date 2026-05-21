@@ -234,7 +234,14 @@ async def create_export(
     if body.file_type == "pdf":
         file_bytes = render_pdf(context)
     else:
-        file_bytes = render_docx(context)
+        try:
+            file_bytes = render_docx(context)
+        except Exception as _render_exc:
+            import traceback as _tb
+            raise HTTPException(
+                status_code=500,
+                detail=f"render_docx failed: {type(_render_exc).__name__}: {_render_exc}\n{_tb.format_exc()}"
+            ) from _render_exc
 
     # Step 3: Upload to Supabase (outside transaction — see sketch for rationale)
     # revision_number computed inside transaction below to prevent race conditions
