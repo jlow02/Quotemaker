@@ -37,12 +37,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-tedRoute>} />
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
-};
-
-export default App;
-p;
