@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
+from app.constants import NEXTAN_WARRANTY_EXCLUSIONS
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.costing_sheet import CostingSheet
@@ -126,11 +127,15 @@ async def _build_export_context(scenario: Scenario, sheet: CostingSheet, db: Ses
         show_gst=scenario.show_gst,
     )
 
-    # Global settings (logo, signature)
+    # Global settings (logo, signature, company contact for sign-off)
     settings_rows = db.query(GlobalSetting).all()
     settings_map = {row.key: row.value for row in settings_rows}
     logo_url = settings_map.get("nextan_logo_url")
     signature_url = settings_map.get("signature_url")
+    company_name = settings_map.get("company_name", "NEXTAN Pte Ltd")
+    company_contact_name = settings_map.get("company_contact_name", "")
+    company_contact_email = settings_map.get("company_contact_email", "")
+    company_contact_phone = settings_map.get("company_contact_phone", "")
 
     # T&C
     global_tnc = [
@@ -178,9 +183,14 @@ async def _build_export_context(scenario: Scenario, sheet: CostingSheet, db: Ses
         "notes_exclusions": scenario.notes_exclusions or [],
         "logo_url": logo_url,
         "signature_url": signature_url,
+        "company_name": company_name,
+        "company_contact_name": company_contact_name,
+        "company_contact_email": company_contact_email,
+        "company_contact_phone": company_contact_phone,
         "global_tnc": global_tnc,
         "sheet_tnc": sheet_tnc,
         "fx_rates_used": fx_rates_used,
+        "warranty_exclusions": NEXTAN_WARRANTY_EXCLUSIONS,
     }
 
 
@@ -266,7 +276,7 @@ async def create_export(
 
 
 def _dict_to_obj(d: dict):
-    """Convert a dict to a simple namespace object for attribute access."""
+    """Purpose: Convert a dict to a simple namespace object for attribute access. Owner: [Claude]"""
     class Obj:
         pass
     obj = Obj()
