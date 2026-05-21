@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, History } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Separator } from '../components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
@@ -15,6 +15,7 @@ import {
   createLineItem,
   deleteLineItem,
   createExport,
+  downloadExport,
   getLiveFxRates,
   createScenario,
 } from '../api/services';
@@ -26,61 +27,53 @@ import { AddLineItemDialog } from '../components/costing/AddLineItemDialog';
 /**
  * @purpose Renders the detailed view of a costing sheet, including scenarios, line items, and financial calculations.
  * Orchestrates data fetching and delegates rendering to sub-components.
- * @param None
- * @returns {JSX.Element} The CostingSheetDetail page component.
- * @owner Gemini
+ * @owner [Claude]
  */
 const CostingSheetDetail: React.FC = () => {
   const { sheetId } = useParams<{ sheetId: string }>();
+  const navigate = useNavigate();
   const { activeSheetId, activeScenarioId, setActiveSheet, setActiveScenario } = useUiStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addItemOpen, setAddItemOpen] = useState(false);
 
-  // Fetch costing sheet details
   const sheetQuery = useQuery({
     queryKey: ['costingSheet', sheetId],
     queryFn: () => getCostingSheet(sheetId!),
     enabled: !!sheetId,
   });
 
-  // Fetch scenarios for the sheet
   const scenariosQuery = useQuery({
     queryKey: ['scenarios', sheetId],
     queryFn: () => listScenarios(sheetId!),
     enabled: !!sheetId,
   });
 
-  // Fetch FX overrides for the sheet
   const fxOverridesQuery = useQuery({
     queryKey: ['fxOverrides', sheetId],
     queryFn: () => listFxOverrides(sheetId!),
     enabled: !!sheetId,
   });
 
-  // Fetch live FX rates once on mount and keep
   const liveFxRatesQuery = useQuery({
     queryKey: ['liveFxRates'],
     queryFn: () => getLiveFxRates(),
-    staleTime: 1000 * 60 * 30, // Rates are good for 30 minutes
-    gcTime: 1000 * 60 * 60, // Cache for 1 hour
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
   });
 
-  // Set active sheet so uiStore allows scenario selection
   useEffect(() => {
     if (sheetId && activeSheetId !== sheetId) {
       setActiveSheet(sheetId);
     }
   }, [sheetId, activeSheetId, setActiveSheet]);
 
-  // Set active scenario to the first one if not already set
   useEffect(() => {
     if (!activeScenarioId && scenariosQuery.data && scenariosQuery.data.length > 0) {
       setActiveScenario(scenariosQuery.data[0].id);
     }
   }, [activeScenarioId, scenariosQuery.data, setActiveScenario]);
 
-  // Fetch line items for the active scenario
   const lineItemsQuery = useQuery({
     queryKey: ['lineItems', activeScenarioId],
     queryFn: () => listLineItems(activeScenarioId!),
@@ -102,14 +95,12 @@ const CostingSheetDetail: React.FC = () => {
     return items
       .filter((item) => item.is_visible !== false)
       .reduce((sum, item) => {
-        // Prefer backend computed value (includes markup + FX); fall back to qty×cost_rate
         const computed = Number(item.computed?.line_total_sgd ?? 0);
         return sum + (computed > 0 ? computed : Number(item.qty) * Number(item.cost_rate));
       }, 0)
       .toFixed(2);
   }, [lineItemsQuery.data]);
 
-  // Scenario mutation
   const createScenarioMutation = useMutation({
     mutationFn: (name: string) => createScenario(sheetId!, { name, display_order: (scenariosQuery.data?.length ?? 0) + 1 }),
     onSuccess: (newScenario) => {
@@ -121,7 +112,6 @@ const CostingSheetDetail: React.FC = () => {
     },
   });
 
-  // Line item mutations
   const createLineItemMutation = useMutation({
     mutationFn: (data: Parameters<typeof createLineItem>[1]) =>
       createLineItem(activeScenarioId!, data),
@@ -147,8 +137,23 @@ const CostingSheetDetail: React.FC = () => {
 
   const exportMutation = useMutation({
     mutationFn: (scenarioId: string) => createExport(scenarioId, { file_type: 'docx' }),
-    onSuccess: () => {
-      toast({ title: 'Export successful!', description: 'DOCX saved to exports history.' });
+    onSuccess: async (exportData) => {
+      try {
+        const response = await downloadExport(exportData.id);
+        const signedUrl = response?.signed_url;
+        if (!signedUrl) throw new Error('No download URL returned from server');
+        const a = document.createElement('a');
+        a.href = signedUrl;
+        a.download = 'quote_' + exportData.id + '.docx';
+        a.click();
+        a.remove();
+        toast({ title: 'Export downloaded!', description: 'Your DOCX file is downloading.' });
+      } catch (_dlErr) {
+        toast({
+          title: 'Export saved',
+          description: 'File saved to exports history — click "View Exports" to download manually.',
+        });
+      }
     },
     onError: (error) => {
       toast({ title: 'Export failed', description: error.message, variant: 'destructive' });
@@ -217,17 +222,26 @@ const CostingSheetDetail: React.FC = () => {
       />
       <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm">
         <div className="text-xl font-semibold">Grand Total: {grandTotal}</div>
-        <Button
-          onClick={() => activeScenarioId && exportMutation.mutate(activeScenarioId)}
-          disabled={!activeScenarioId || exportMutation.isPending}
-        >
-          {exportMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="mr-2 h-4 w-4" />
-          )}
-          {exportMutation.isPending ? 'Exporting…' : 'Export DOCX'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => sheetId && navigate('/sheets/' + sheetId + '/exports')}
+          >
+            <History className="mr-2 h-4 w-4" />
+            View Exports
+          </Button>
+          <Button
+            onClick={() => activeScenarioId && exportMutation.mutate(activeScenarioId)}
+            disabled={!activeScenarioId || exportMutation.isPending}
+          >
+            {exportMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {exportMutation.isPending ? 'Exporting...' : 'Export DOCX'}
+          </Button>
+        </div>
       </div>
       <Toaster />
     </div>
