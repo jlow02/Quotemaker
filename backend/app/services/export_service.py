@@ -322,27 +322,27 @@ def render_docx(context: dict) -> bytes:
     # Row 0: Date + Ref No.
     hdr_table.cell(0, 0).text = "Date"
     hdr_table.cell(0, 1).text = ":"
-    hdr_table.cell(0, 2).text = sheet.get("date", "")
+    hdr_table.cell(0, 2).text = sheet.get("date") or ""
     hdr_table.cell(0, 3).text = "Ref No.:"
-    hdr_table.cell(0, 4).text = sheet.get("ref_number", "")
+    hdr_table.cell(0, 4).text = sheet.get("ref_number") or ""
 
     # Row 1: To (merge cols 2-4)
     hdr_table.cell(1, 0).text = "To"
     hdr_table.cell(1, 1).text = ":"
     merged_to = hdr_table.cell(1, 2).merge(hdr_table.cell(1, 4))
-    merged_to.text = sheet.get("client_name", "")
+    merged_to.text = sheet.get("client_name") or ""
 
     # Row 2: Attn (merge cols 2-4)
     hdr_table.cell(2, 0).text = "Attn."
     hdr_table.cell(2, 1).text = ":"
     merged_attn = hdr_table.cell(2, 2).merge(hdr_table.cell(2, 4))
-    merged_attn.text = sheet.get("contact_name", "")
+    merged_attn.text = sheet.get("contact_name") or ""
 
     # Row 3: Email (merge cols 2-4)
     hdr_table.cell(3, 0).text = "Email"
     hdr_table.cell(3, 1).text = ":"
     merged_email = hdr_table.cell(3, 2).merge(hdr_table.cell(3, 4))
-    merged_email.text = sheet.get("contact_email", "")
+    merged_email.text = sheet.get("contact_email") or ""
 
     doc.add_paragraph()  # spacer
 
@@ -350,7 +350,7 @@ def render_docx(context: dict) -> bytes:
     # 3. QUOTE TITLE
     # ------------------------------------------------------------------ #
     title_para = doc.add_paragraph()
-    title_run = title_para.add_run(f"Quotation: {sheet.get('quote_title', '')}")
+    title_run = title_para.add_run(f"Quotation: {sheet.get('quote_title') or ''}")
     title_run.bold = True
     title_run.font.size = Pt(12)
 
@@ -673,4 +673,4 @@ def delete_from_storage(file_path: str) -> None:
         supabase.storage.from_(settings.supabase_storage_bucket_exports).remove([file_path])
     except Exception:
         # Non-fatal: log but don't raise. The DB record deletion is the authoritative action.
-        pass
+ 
