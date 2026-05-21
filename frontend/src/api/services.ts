@@ -2194,11 +2194,17 @@ export async function updateGlobalTnc(tncId: string, data: {
 export async function deleteGlobalTnc(tncId: string): Promise<void> {
   await apiClient.delete<void>(`/api/v1/settings/tnc-additions/${tncId}`);
 }
-/** @purpose Alias — lists all exports accessible to current user (no sheet filter). @owner [Gemini] */
+/**
+ * @deprecated GET /api/v1/exports does not exist on the backend (returns 404).
+ * Use listSheetExports(sheetId) or listScenarioExports(scenarioId) instead.
+ * This function is kept only for backwards compatibility and will be removed.
+ * @owner [Gemini]
+ */
 export async function listExportsHistory(): Promise<Array<{
   id: string; costing_sheet_id: string; scenario_id: string; user_id: string;
   revision_number: number; file_type: string; file_path: string; exported_at: string;
 }>> {
+  console.warn('[DEPRECATED] listExportsHistory() calls a non-existent endpoint. Use listSheetExports(sheetId) instead.');
   const response = await apiClient.get('/api/v1/exports');
   return response.data;
 }
