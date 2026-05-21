@@ -23,6 +23,7 @@ import { SheetHeader } from '../components/costing/SheetHeader';
 import { ScenarioTabs } from '../components/costing/ScenarioTabs';
 import { LineItemTable } from '../components/costing/LineItemTable';
 import { AddLineItemDialog } from '../components/costing/AddLineItemDialog';
+import { TermsAndNotesPanel } from '../components/costing/TermsAndNotesPanel';
 
 /**
  * @purpose Renders the detailed view of a costing sheet, including scenarios, line items, and financial calculations.
@@ -196,6 +197,8 @@ const CostingSheetDetail: React.FC = () => {
     );
   }
 
+  const sheet = sheetQuery.data;
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-4">
@@ -203,7 +206,7 @@ const CostingSheetDetail: React.FC = () => {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Dashboard
         </Button>
       </div>
-      <SheetHeader sheet={sheetQuery.data as any} onUpdate={() => {}} />
+      <SheetHeader sheet={sheet as any} onUpdate={() => {}} />
       <Separator className="my-4" />
       <div className="mb-6">
         <ScenarioTabs
@@ -220,6 +223,9 @@ const CostingSheetDetail: React.FC = () => {
           onAddLineItem={() => setAddItemOpen(true)}
           onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)}
         />
+      )}
+      {sheet && sheetId && (
+        <TermsAndNotesPanel sheet={sheet as any} sheetId={sheetId} />
       )}
       <AddLineItemDialog
         open={addItemOpen}
