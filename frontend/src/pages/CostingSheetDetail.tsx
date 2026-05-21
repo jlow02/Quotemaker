@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Download, History } from 'lucide-react';
+import { Loader2, Download, History, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Separator } from '../components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
@@ -86,20 +86,20 @@ const CostingSheetDetail: React.FC = () => {
   );
 
   const grandTotal = useMemo(() => {
-    const items = (lineItemsQuery.data ?? []) as Array<{
-      is_visible?: boolean;
-      computed?: { line_total_sgd?: string | number };
-      qty: string | number;
-      cost_rate: string | number;
-    }>;
+    const items = lineItemsQuery.data ?? [];
     return items
-      .filter((item) => item.is_visible !== false)
+      .filter((item) => item.is_visible !== false && !item.parent_line_item_id)
       .reduce((sum, item) => {
-        const computed = Number(item.computed?.line_total_sgd ?? 0);
-        return sum + (computed > 0 ? computed : Number(item.qty) * Number(item.cost_rate));
-      }, 0)
-      .toFixed(2);
+        const lt = Number(item.computed?.line_total_sgd ?? 0);
+        return sum + (lt > 0 ? lt : Number(item.qty) * Number(item.cost_rate));
+      }, 0);
   }, [lineItemsQuery.data]);
+
+  const grandTotalDisplay = new Intl.NumberFormat('en-SG', {
+    style: 'currency',
+    currency: 'SGD',
+    minimumFractionDigits: 2,
+  }).format(grandTotal);
 
   const createScenarioMutation = useMutation({
     mutationFn: (name: string) => createScenario(sheetId!, { name, display_order: (scenariosQuery.data?.length ?? 0) + 1 }),
@@ -198,14 +198,21 @@ const CostingSheetDetail: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6">
+      <div className="mb-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Dashboard
+        </Button>
+      </div>
       <SheetHeader sheet={sheetQuery.data as any} onUpdate={() => {}} />
       <Separator className="my-4" />
-      <div className='mb-6'><ScenarioTabs
-        scenarios={scenariosQuery.data || []}
-        activeScenarioId={activeScenarioId || ''}
-        onCreateScenario={() => createScenarioMutation.mutate('Scenario ' + ((scenariosQuery.data?.length ?? 0) + 1))}
-        onSelectScenario={setActiveScenario}
-      /></div>
+      <div className="mb-6">
+        <ScenarioTabs
+          scenarios={scenariosQuery.data || []}
+          activeScenarioId={activeScenarioId || ''}
+          onCreateScenario={() => createScenarioMutation.mutate('Scenario ' + ((scenariosQuery.data?.length ?? 0) + 1))}
+          onSelectScenario={setActiveScenario}
+        />
+      </div>
       {activeScenario && (
         <LineItemTable
           scenarioId={activeScenarioId || ''}
@@ -220,8 +227,8 @@ const CostingSheetDetail: React.FC = () => {
         onSubmit={(data) => createLineItemMutation.mutate(data)}
         isLoading={createLineItemMutation.isPending}
       />
-      <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm">
-        <div className="text-xl font-semibold">Grand Total: {grandTotal}</div>
+      <div className="mt-4 flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm">
+        <div className="text-xl font-semibold">Grand Total: {grandTotalDisplay}</div>
         <div className="flex gap-2">
           <Button
             variant="outline"
