@@ -781,6 +781,22 @@ export async function previewScenario(
   return response.data;
 }
 
+/**
+ * @purpose Fetches the HTML preview of a scenario as a raw text string.
+ *          The backend /preview endpoint returns text/html, not JSON.
+ *          Uses responseType: 'text' to bypass axios JSON parsing.
+ * @param scenarioId The UUID of the scenario to preview.
+ * @returns A promise resolving to a raw HTML string ready for iframe srcdoc.
+ * @owner [DeepSeek]
+ */
+export async function getScenarioPreviewHtml(scenarioId: string): Promise<string> {
+  const response = await apiClient.get<string>(
+    `/api/v1/scenarios/${scenarioId}/preview`,
+    { responseType: 'text' }
+  );
+  return response.data;
+}
+
 // ── Line Items ───────────────────────────────────────────
 
 /**
@@ -2096,7 +2112,7 @@ export async function deleteGlobalTnc(tncId: string): Promise<void> {
 /**
  * @deprecated GET /api/v1/exports does not exist on the backend (returns 404).
  * Use listSheetExports(sheetId) or listScenarioExports(scenarioId) instead.
- * This function is kept only for backwards compatibility and will be removed.
+  * This function is kept only for backwards compatibility and will be removed.
  * @owner [Gemini]
  */
 export async function listExportsHistory(): Promise<Array<{
