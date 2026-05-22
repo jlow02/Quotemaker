@@ -19,7 +19,10 @@
 | ID | Task | Status | Notes |
 |---|---|---|---|
 | P9-01 | Fix DOCX export — branded NEXTAN quotation | 🟢 DONE | `render_docx` rewritten; nullable field `or ""` fix deployed (commit `b6a8021b`); 201 confirmed 2026-05-22 |
-| P9-02 | Add Discount + GST toggle + section subtotals pricing summary | ⚪ PENDING | Frontend task — CostingSheetDetail.tsx |
+| P9-02 | Add Discount + GST toggle + section subtotals pricing summary | 🟢 DONE | `CostingSheetTotals.tsx` created; `CostingSheetDetail.tsx` updated; deployed Vercel `dpl_6qZRWQtHjizFJ6we` 2026-05-22 |
+| P9-03 | Upload NEXTAN logo to Supabase `assets` bucket | ⚪ PENDING | Justin must save logo PNG to workspace first, then Cowork uploads + sets `nextan_logo_url` GlobalSetting |
+| P9-04 | Remove debug try/except from exports.py | ⚪ PENDING | Wrapper in `backend/app/routers/exports.py` `create_export()`. Remove once P9-05 visual check passes |
+| P9-05 | Test DOCX output visually | ⚪ PENDING | Download exported DOCX from live app; verify matches NEXTAN sample format (header, sections, T&C, sign-off) |
 
 ---
 
@@ -27,6 +30,7 @@
 
 | ID | Task | Completed |
 |---|---|---|
+| P9-02 | Discount+GST toggle+pricing summary — CostingSheetTotals.tsx (new) + CostingSheetDetail.tsx (updated); tsc 0 errors; Vercel READY | 2026-05-22 |
 | P9-01 | DOCX export fix: nullable fields `or ""`, syntax error fix, deploy confirmed 201 | 2026-05-22 |
 | P8-01 | Phase 8 bug fixes: sub_components, AddLineItemDialog, delete button, grand total, DOCX export | 2026-05-13 |
 | P8-02 | Render backend deployment — live at https://quotemaker-y9wb.onrender.com | 2026-05-14 |
@@ -56,39 +60,28 @@
 
 ---
 
+## P9-02 Fix Detail (completed 2026-05-22)
+
+| File | Action | Detail |
+|---|---|---|
+| `frontend/src/components/costing/CostingSheetTotals.tsx` | CREATED | New component: discount type select, discount value input, GST toggle (custom button), pricing summary panel (Subtotal → Discount → GST → Total). All values from `scenario.totals` — no client-side math. Commits `a03f9c0a`. |
+| `frontend/src/pages/CostingSheetDetail.tsx` | MODIFIED | Added `updateScenario` import + `CostingSheetTotals` import; local state for `discountType`, `discountValue`, `showGst`; `updateScenarioMutation` with `invalidateQueries(['scenarios', sheetId])`; handlers with 750ms debounce on `discountValue`; removed client-side `grandTotal`/`grandTotalDisplay`; `CostingSheetTotals` inserted between LineItemTable and TermsAndNotesPanel. Commit `d02d195e`. |
+
+**DeepSeek trial notes (P9-02 was the first DeepSeek frontend trial):**
+- Gemini: APPROVED WITH CONDITIONS (Medium task)
+- DeepSeek self-assessment: Feasible with moderate risk
+- Issues caught by tsc compile gate: truncated `export default` name, missing shadcn/ui components (`select.tsx`, `switch.tsx` not in codebase — replaced with native elements)
+- Verdict: ~85% correct. Worth continuing. Orientation gap fixed (see below).
+
+**Protocol changes this session:**
+- `templates/deepseek_orientation.md` CREATED — mandatory orientation for all DeepSeek calls (commit `0086e30c`)
+- `AGENTS.md` Section 14.10 added — DeepSeek Session Orientation (Mandatory) (commit `8ae5a316`)
+- `tasks/lessons.md` lesson #39 added (commit `f758c3d3`)
+
+---
+
 ## P9-01 Fix Detail (completed 2026-05-22)
 
 | Fix | File | Description |
 |---|---|---|
-| render_docx rewrite | `backend/app/services/export_service.py` | Full rewrite to match NEXTAN sample quotation format: header table, line items by section, totals rows, terms table, T&C, sign-off. Commit `1417d953`. |
-| Nullable fields `or ""` | `export_service.py` lines 325–353 | `sheet.get("field", "")` → `sheet.get("field") or ""` for all header/title fields. Fixes `TypeError: 'NoneType' object is not iterable` when contact_name/email are NULL in DB. Commit `e41480cf`. |
-| Syntax error fix | `export_service.py` line 676 | Edit tool stripped `pass` from final `except` block → `IndentationError`. Fixed via Python `str.replace()` write. Commit `b6a8021b`. |
-| Debug wrapper added | `backend/app/routers/exports.py` | try/except around `render_docx()` call returning full traceback as JSON 500 detail. Commit `85dddb26`. Remove once stable. |
-| Exports router company fields | `backend/app/routers/exports.py` | Added `company_name`, `company_contact_name`, `company_contact_email`, `company_contact_phone` from GlobalSetting to export context. |
-| GlobalSettings seeded | Supabase DB | Seeded `company_name`, `company_contact_name`, `company_contact_email`, `company_contact_phone` via API. |
-
----
-
-## Pending — Next Session
-
-| ID | Task | Notes |
-|---|---|---|
-| P9-02 | Discount + GST toggle + section subtotals UI | Frontend: CostingSheetDetail.tsx. Backend already supports `discount_type`, `discount_value`, `show_gst` on Scenario model. Just needs UI controls + display. |
-| P9-03 | Upload NEXTAN logo to Supabase `assets` bucket | Justin must save logo PNG as a file to workspace, then upload to Supabase Storage and set `nextan_logo_url` GlobalSetting. |
-| P9-04 | Remove debug try/except from exports.py | Once DOCX export confirmed stable, clean up the debug wrapper in `create_export` in `exports.py`. |
-| P9-05 | Test DOCX output visually | Download an exported DOCX from the live app and verify it matches the NEXTAN sample format (header, sections, T&C, sign-off). |
-
----
-
-## Open Conditions (must close before merge to main)
-
-| ID | Condition | From | Owner |
-|---|---|---|---|
-| C-P4-01 | ✅ CLOSED 2026-05-14 — both integration tests pass against live Render backend | Gemini P4 R2 | CLOSED |
-| C-P5-S01 | ✅ `docs/adr/ADR-001-jwt-storage.md` written | Claude sketch review | CLOSED 2026-05-11 |
-| C-P5-S02 | ✅ useMutation + setQueryData — header in services.ts | Claude sketch review | CLOSED 2026-05-11 |
-
----
-
-## Blocked Items
-*None.*
+| render_docx rewrite | `backend/app/services/export_service.py` | Full rewrite to match NEXTAN sample quotation format: header table, line items 
