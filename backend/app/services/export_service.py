@@ -252,16 +252,46 @@ def _fmt(val) -> str:
 
 SECTIONS_ORDER = ["Hardware", "Software", "Professional Fees", "Maintenance"]
 
-DARK_GREY = "404040"   # Section header row text (white bg + dark font)
-LIGHT_GREY = "F2F2F2"  # Section header row background
-TOTAL_GREY = "D9D9D9"  # Grand total row background
+_FONT = "Times New Roman"
+_FONT_SIZE = Pt(12)
+
+
+def _set_font(run, bold: bool = False, size=None) -> None:
+    """
+    Purpose: Apply Times New Roman font to a run, matching original NEXTAN sample.
+    Inputs: run (docx Run), bold (bool), size (Pt | None — defaults to 12pt)
+    Outputs: none — mutates run in place
+    Owner: [Claude]
+    """
+    run.font.name = _FONT
+    run.font.size = size if size is not None else _FONT_SIZE
+    run.font.bold = bold
+
+
+def _cell_write(cell, text: str, bold: bool = False, size=None,
+                align: WD_ALIGN_PARAGRAPH | None = None):
+    """
+    Purpose: Clear a cell and write a single run with Times New Roman formatting.
+    Inputs: cell, text (str), bold (bool), size (Pt|None), align (WD_ALIGN_PARAGRAPH|None)
+    Outputs: the paragraph — mutates cell in place
+    Owner: [Claude]
+    """
+    cell.text = ""
+    para = cell.paragraphs[0]
+    if align is not None:
+        para.alignment = align
+    run = para.add_run(text)
+    _set_font(run, bold=bold, size=size)
+    return para
 
 
 def render_docx(context: dict) -> bytes:
     """
     Purpose: Render the quote as a branded NEXTAN DOCX quotation.
-             Matches the sample quotation format:
-             logo → client header → title → line items by section → terms table → T&C → sign-off.
+             Matches the original sample exactly:
+             Word page header (logo + address) → client header table → quote title →
+             main items table (no section rows) → asterisk notes → maintenance table →
+             Terms & Conditions heading → terms table → warranty T&C → closing → sign-off.
     Inputs: context (dict) — output of _build_export_context in exports.py
     Outputs: bytes — DOCX binary content
     Owner: [Claude]
@@ -277,333 +307,324 @@ def render_docx(context: dict) -> bytes:
     logo_url = context.get("logo_url")
     signature_url = context.get("signature_url")
     company_name = context.get("company_name", "NEXTAN Pte Ltd")
-    company_contact_name = context.get("company_contact_name", "")
+    company_contact_name = context.get("company_contact_name", "Justin Low")
     company_contact_email = context.get("company_contact_email", "")
     company_contact_phone = context.get("company_contact_phone", "")
 
     doc = Document()
 
-    # Page margins — standard A4 margins
-    for section in doc.sections:
-        section.top_margin = Inches(0.9)
-        section.bottom_margin = Inches(0.9)
-        section.left_margin = Inches(1.1)
-        section.right_margin = Inches(1.1)
+    # A4 — 1.0" margins all sides, 0.125" header distance (matches original)
+    for sec in doc.sections:
+        sec.top_margin = Inches(1.0)
+        sec.bottom_margin = Inches(1.0)
+        sec.left_margin = Inches(1.0)
+        sec.right_margin = Inches(1.0)
+        sec.header_distance = Inches(0.125)
 
     # ------------------------------------------------------------------ #
-    # 1. LOGO
+    # PAGE HEADER — 2-col borderless table: logo (left) | address (right)
+    # Matches original: r0c0=2.575" logo image, r0c1=3.725" company text
     # ------------------------------------------------------------------ #
+    page_hdr = doc.sections[0].header
+    # Remove default empty paragraph that Word adds to headers
+    for p in page_hdr.paragraphs:
+        p.clear()
+
+    hdr_tbl = page_hdr.add_table(rows=1, cols=2, width=Inches(6.27))
+    _remove_table_borders(hdr_tbl)
+    hdr_tbl.cell(0, 0).width = Inches(2.575)
+    hdr_tbl.cell(0, 1).width = Inches(3.725)
+
+    # Left col — logo
     if logo_url:
         logo_bytes = _fetch_image(logo_url)
         if logo_bytes:
-            p = doc.add_paragraph()
-            run = p.add_run()
-            run.add_picture(logo_bytes, width=Inches(2.0))
+            logo_cell = hdr_tbl.cell(0, 0)
+            logo_cell.text = ""
+            logo_para = logo_cell.paragraphs[0]
+            logo_para.add_run().add_picture(logo_bytes, width=Inches(2.42))
 
-    doc.add_paragraph()  # vertical spacer
-
-    # ------------------------------------------------------------------ #
-    # 2. CLIENT HEADER TABLE
-    # Layout (5 cols):
-    #   Row 0: Date | : | <date value> | Ref No.: | <ref value>
-    #   Row 1: To   | : | <client name + address — merged cols 2-4>
-    #   Row 2: Attn.| : | <contact name — merged cols 2-4>
-    #   Row 3: Email| : | <contact email — merged cols 2-4>
-    # ------------------------------------------------------------------ #
-    hdr_table = doc.add_table(rows=4, cols=5)
-    _remove_table_borders(hdr_table)
-
-    # Col widths: label=0.7", colon=0.15", value=2.5", label2=0.85", value2=1.5"
-    col_widths_hdr = [Inches(0.7), Inches(0.15), Inches(2.5), Inches(0.85), Inches(1.5)]
-    for i, w in enumerate(col_widths_hdr):
-        for row in hdr_table.rows:
-            row.cells[i].width = w
-
-    # Row 0: Date + Ref No.
-    hdr_table.cell(0, 0).text = "Date"
-    hdr_table.cell(0, 1).text = ":"
-    hdr_table.cell(0, 2).text = sheet.get("date") or ""
-    hdr_table.cell(0, 3).text = "Ref No.:"
-    hdr_table.cell(0, 4).text = sheet.get("ref_number") or ""
-
-    # Row 1: To (merge cols 2-4)
-    hdr_table.cell(1, 0).text = "To"
-    hdr_table.cell(1, 1).text = ":"
-    merged_to = hdr_table.cell(1, 2).merge(hdr_table.cell(1, 4))
-    merged_to.text = sheet.get("client_name") or ""
-
-    # Row 2: Attn (merge cols 2-4)
-    hdr_table.cell(2, 0).text = "Attn."
-    hdr_table.cell(2, 1).text = ":"
-    merged_attn = hdr_table.cell(2, 2).merge(hdr_table.cell(2, 4))
-    merged_attn.text = sheet.get("contact_name") or ""
-
-    # Row 3: Email (merge cols 2-4)
-    hdr_table.cell(3, 0).text = "Email"
-    hdr_table.cell(3, 1).text = ":"
-    merged_email = hdr_table.cell(3, 2).merge(hdr_table.cell(3, 4))
-    merged_email.text = sheet.get("contact_email") or ""
-
-    doc.add_paragraph()  # spacer
+    # Right col — company address block
+    addr_cell = hdr_tbl.cell(0, 1)
+    addr_cell.text = ""
+    addr_lines = [company_name]
+    for i, line in enumerate(addr_lines):
+        if i == 0:
+            para = addr_cell.paragraphs[0]
+        else:
+            para = addr_cell.add_paragraph()
+        _set_font(para.add_run(line), bold=(i == 0), size=Pt(10))
 
     # ------------------------------------------------------------------ #
-    # 3. QUOTE TITLE
+    # 1. CLIENT HEADER TABLE — 4r x 5c, no borders
+    # Col widths matching original: 0.56", 0.19", 3.58", 0.75", 1.78"
+    # ------------------------------------------------------------------ #
+    client_tbl = doc.add_table(rows=4, cols=5)
+    _remove_table_borders(client_tbl)
+    col_w = [Inches(0.56), Inches(0.19), Inches(3.58), Inches(0.75), Inches(1.78)]
+    for row in client_tbl.rows:
+        for ci, w in enumerate(col_w):
+            row.cells[ci].width = w
+
+    # Row 0: Date | : | <date> | Ref No.: | <ref>
+    _cell_write(client_tbl.cell(0, 0), "Date")
+    _cell_write(client_tbl.cell(0, 1), ":")
+    _cell_write(client_tbl.cell(0, 2), sheet.get("date") or "")
+    _cell_write(client_tbl.cell(0, 3), "Ref No.:")
+    _cell_write(client_tbl.cell(0, 4), sheet.get("ref_number") or "")
+
+    # Rows 1-3: To / Attn. / Email — cols 2-4 merged
+    for ri, (label, key) in enumerate([
+        ("To", "client_name"),
+        ("Attn.", "contact_name"),
+        ("Email", "contact_email"),
+    ], start=1):
+        _cell_write(client_tbl.cell(ri, 0), label)
+        _cell_write(client_tbl.cell(ri, 1), ":")
+        merged = client_tbl.cell(ri, 2).merge(client_tbl.cell(ri, 4))
+        _cell_write(merged, sheet.get(key) or "")
+
+    # ------------------------------------------------------------------ #
+    # 2. QUOTE TITLE — Times New Roman 12pt bold
     # ------------------------------------------------------------------ #
     title_para = doc.add_paragraph()
-    title_run = title_para.add_run(f"Quotation: {sheet.get('quote_title') or ''}")
-    title_run.bold = True
-    title_run.font.size = Pt(12)
+    _set_font(title_para.add_run(f"Quotation: {sheet.get('quote_title') or ''}"),
+              bold=True, size=Pt(12))
 
     # ------------------------------------------------------------------ #
-    # 4. GENERAL NOTES (asterisk footnotes shown below title)
+    # 3. LINE ITEMS TABLE — Table Grid, no section header rows
+    # Col widths matching original: 0.39", 3.37", 0.70", 1.15", 1.18"
+    # No. column header present but item cells left blank (matches original)
     # ------------------------------------------------------------------ #
-    if sheet.get("general_notes"):
-        for line in sheet["general_notes"].split("\n"):
-            line = line.strip()
-            if line:
-                n_para = doc.add_paragraph()
-                n_run = n_para.add_run(line)
-                n_run.font.size = Pt(9)
-                n_run.font.color.rgb = RGBColor(0x60, 0x60, 0x60)
+    item_col_w = [Inches(0.39), Inches(3.37), Inches(0.70), Inches(1.15), Inches(1.18)]
 
-    doc.add_paragraph()  # spacer
-
-    # ------------------------------------------------------------------ #
-    # 5. LINE ITEMS TABLE
-    # Columns: No. | Description | Qty | Unit Price (S$) | Total Price (S$)
-    # ------------------------------------------------------------------ #
-
-    # Group visible top-level items by section
-    by_section: dict[str, list[dict]] = {s: [] for s in SECTIONS_ORDER}
+    # Separate visible top-level items: main sections vs Maintenance
+    main_items: list[dict] = []
+    maint_items: list[dict] = []
     for item in line_items:
         if not item.get("is_visible", True):
             continue
         if item.get("parent_line_item_id"):
             continue
         sec = item.get("section", "Hardware")
-        if sec in by_section:
-            by_section[sec].append(item)
-        else:
-            by_section.setdefault(sec, []).append(item)
+        (maint_items if sec == "Maintenance" else main_items).append(item)
 
-    # Sort each section by display_order
-    for sec in by_section:
-        by_section[sec].sort(key=lambda x: x.get("display_order", 0))
+    # Sort within each group by section order then display_order
+    sec_rank = {s: i for i, s in enumerate(SECTIONS_ORDER)}
+    main_items.sort(key=lambda x: (
+        sec_rank.get(x.get("section", "Hardware"), 99),
+        x.get("display_order", 0),
+    ))
+    maint_items.sort(key=lambda x: x.get("display_order", 0))
 
-    # Build table
-    items_table = doc.add_table(rows=1, cols=5)
-    items_table.style = "Table Grid"
+    def _build_items_table(items: list[dict]) -> "docx.table.Table":
+        """
+        Purpose: Build a 5-col Table Grid matching the original NEXTAN format.
+                 Header row then one row per item. No section separator rows.
+                 No. column header present; item cells left blank per original.
+        Inputs: items (list[dict]) — visible top-level line items
+        Outputs: docx Table — added to doc, returned for caller to append total rows
+        Owner: [Claude]
+        """
+        tbl = doc.add_table(rows=1, cols=5)
+        tbl.style = "Table Grid"
+        for ci, w in enumerate(item_col_w):
+            tbl.rows[0].cells[ci].width = w
 
-    # Column widths: No=0.4", Desc=3.2", Qty=0.5", UnitPrice=1.1", Total=1.1"
-    col_widths_items = [Inches(0.4), Inches(3.2), Inches(0.5), Inches(1.1), Inches(1.1)]
-    for i, w in enumerate(col_widths_items):
-        items_table.rows[0].cells[i].width = w
-
-    # Header row
-    col_headers = ["No.", "Description", "Qty", "Unit Price\n(S$)", "Total Price\n(S$)"]
-    for i, h in enumerate(col_headers):
-        cell = items_table.rows[0].cells[i]
-        _set_cell_bg(cell, "D9D9D9")
-        cell.text = ""
-        para = cell.paragraphs[0]
-        run = para.add_run(h)
-        run.bold = True
-        if i >= 2:
-            para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-
-    item_no = 1
-    for sec in SECTIONS_ORDER:
-        items = by_section.get(sec, [])
-        if not items:
-            continue
-
-        # Section header row (merged across all 5 cols)
-        sec_row = items_table.add_row()
-        merged_sec = sec_row.cells[0].merge(sec_row.cells[4])
-        _set_cell_bg(merged_sec, LIGHT_GREY)
-        para = merged_sec.paragraphs[0]
-        run = para.add_run(sec)
-        run.bold = True
-        run.font.size = Pt(10)
-
-        sec_total = Decimal("0")
+        # Header row — bold, right-aligned for numeric cols
+        for ci, hdr_text in enumerate(
+            ["No", "Description", "Qty", "Unit Price\n(S$)", "Total Price\n(S$)"]
+        ):
+            cell = tbl.rows[0].cells[ci]
+            cell.text = ""
+            para = cell.paragraphs[0]
+            if ci >= 2:
+                para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            _set_font(para.add_run(hdr_text), bold=True)
 
         for item in items:
             computed = item.get("computed", {})
-            line_total_str = computed.get("line_total_sgd") or "0"
-            line_total = Decimal(line_total_str)
-            sec_total += line_total
-
-            item_row = items_table.add_row()
-            cells = item_row.cells
-
-            # No.
-            cells[0].text = str(item_no)
-
-            # Description (include sub_specs as bullet points)
-            desc_text = item.get("description", "")
-            if item.get("sub_specs"):
-                specs = item["sub_specs"]
-                if isinstance(specs, list):
-                    desc_text += "\n" + "\n".join(f"  • {s}" for s in specs)
-            cells[1].text = desc_text
-
-            # Qty
-            cells[2].text = str(item.get("qty", 1))
-            cells[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-
-            # Unit Price (SGD)
+            line_total = Decimal(str(computed.get("line_total_sgd") or "0"))
             selling_rate = computed.get("selling_rate_sgd")
-            _right_cell(cells[3], _fmt(selling_rate) if selling_rate else "—")
 
-            # Total Price (SGD)
-            _right_cell(cells[4], _fmt(line_total) if line_total else "—")
+            row = tbl.add_row()
+            cells = row.cells
 
-            item_no += 1
+            # No. — blank to match original sample
+            _cell_write(cells[0], "")
 
-    # ---- Totals rows ----
-    subtotal = Decimal(str(totals.get("subtotal_sgd", "0")))
-    discount = Decimal(str(totals.get("discount_amount_sgd", "0")))
-    gst_amount = Decimal(str(totals.get("gst_amount_sgd", "0")))
-    grand_total = Decimal(str(totals.get("grand_total_sgd", "0")))
+            # Description + sub_specs on separate lines
+            cells[1].text = ""
+            desc_para = cells[1].paragraphs[0]
+            _set_font(desc_para.add_run(item.get("description", "")))
+            sub_specs = item.get("sub_specs") or []
+            if isinstance(sub_specs, list):
+                for spec in sub_specs:
+                    sp = cells[1].add_paragraph()
+                    _set_font(sp.add_run(str(spec)))
 
-    def _add_total_row(label: str, value: str, bold: bool = False, bg: str | None = None) -> None:
-        """Purpose: Add a labelled total row to the line items table. Owner: [Claude]"""
-        row = items_table.add_row()
-        merged = row.cells[0].merge(row.cells[3])
-        if bg:
-            _set_cell_bg(merged, bg)
-            _set_cell_bg(row.cells[4], bg)
-        if bold:
-            _bold_cell(merged, label, align="right")
-            _bold_cell(row.cells[4], value, align="right")
-        else:
-            merged.text = ""
-            merged.paragraphs[0].add_run(label)
-            merged.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            _right_cell(row.cells[4], value)
+            # Qty — right-aligned
+            cells[2].text = ""
+            qty_para = cells[2].paragraphs[0]
+            qty_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            _set_font(qty_para.add_run(str(item.get("qty", 1))))
 
-    _add_total_row("Subtotal (SGD)", _fmt(subtotal))
+            # Unit Price — right-aligned
+            cells[3].text = ""
+            up_para = cells[3].paragraphs[0]
+            up_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            _set_font(up_para.add_run(_fmt(selling_rate) if selling_rate else "—"))
 
-    if discount > 0:
-        _add_total_row("Discount (SGD)", f"- {_fmt(discount)}")
+            # Total Price — right-aligned
+            cells[4].text = ""
+            tp_para = cells[4].paragraphs[0]
+            tp_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            _set_font(tp_para.add_run(_fmt(line_total) if line_total else "—"))
 
-    if show_gst:
-        _add_total_row("GST (9%)", _fmt(gst_amount))
+        return tbl
 
-    _add_total_row("TOTAL (SGD)", _fmt(grand_total), bold=True, bg=TOTAL_GREY)
+    # Build main items table and append totals rows
+    if main_items:
+        main_tbl = _build_items_table(main_items)
 
-    doc.add_paragraph()  # spacer
+        subtotal = Decimal(str(totals.get("subtotal_sgd", "0")))
+        discount = Decimal(str(totals.get("discount_amount_sgd", "0")))
+        gst_amount = Decimal(str(totals.get("gst_amount_sgd", "0")))
+        grand_total = Decimal(str(totals.get("grand_total_sgd", "0")))
 
-    # ------------------------------------------------------------------ #
-    # 6. TERMS TABLE
-    # 3 cols: Label | : | Value — borderless layout
-    # ------------------------------------------------------------------ #
-    validity_text = f"Quotation price valid for {sheet.get('quotation_validity_days', 90)} days from date of issue"
-    notes_text = "\n".join(notes_exclusions) if notes_exclusions else ""
+        def _total_row(tbl, label: str, value: str, bold: bool = False) -> None:
+            """Purpose: Append a totals row — label merged cols 0-3, value in col 4. Owner: [Claude]"""
+            row = tbl.add_row()
+            merged = row.cells[0].merge(row.cells[3])
+            _cell_write(merged, label, bold=bold, align=WD_ALIGN_PARAGRAPH.RIGHT)
+            _cell_write(row.cells[4], value, bold=bold, align=WD_ALIGN_PARAGRAPH.RIGHT)
 
-    terms_rows = [
-        ("Payment Term", sheet.get("payment_term") or "To be advised"),
-        ("Quotation Validity", validity_text),
-        ("Lead Time", sheet.get("lead_time") or "30 working days"),
-        ("Local Tax", sheet.get("local_tax") or "Prices quoted in SGD are subject to prevailing Singapore GST"),
-        ("Warranty", sheet.get("warranty") or "12 months standard against manufacturing defects"),
-    ]
-    if notes_text:
-        terms_rows.append(("Note(s)", notes_text))
+        if discount > 0:
+            _total_row(main_tbl, "Subtotal (SGD)", f"$ {_fmt(subtotal)}")
+            _total_row(main_tbl, "Discount (SGD)", f"- {_fmt(discount)}")
 
-    terms_table = doc.add_table(rows=len(terms_rows), cols=3)
-    _remove_table_borders(terms_table)
+        if show_gst:
+            _total_row(main_tbl, "GST (9%)", f"$ {_fmt(gst_amount)}")
 
-    for i, (label, value) in enumerate(terms_rows):
-        row = terms_table.rows[i]
-        row.cells[0].width = Inches(1.5)
-        row.cells[1].width = Inches(0.2)
-        row.cells[2].width = Inches(4.6)
-        lbl_para = row.cells[0].paragraphs[0]
-        lbl_run = lbl_para.add_run(label)
-        lbl_run.bold = True
-        lbl_run.font.size = Pt(10)
-        row.cells[1].text = ":"
-        row.cells[2].text = value
-
-    doc.add_paragraph()  # spacer
+        # TOTAL row — bold, "TOTAL" label + "$ X,XXX.XX" matching original
+        _total_row(main_tbl, "TOTAL", f"$ {_fmt(grand_total)}", bold=True)
 
     # ------------------------------------------------------------------ #
-    # 7. T&C SECTION
+    # 4. ASTERISK NOTES — paragraphs after main table, before maintenance
+    # ------------------------------------------------------------------ #
+    for note in (notes_exclusions or []):
+        note_para = doc.add_paragraph()
+        _set_font(note_para.add_run(str(note)))
+
+    # ------------------------------------------------------------------ #
+    # 5. MAINTENANCE TABLE — separate table with own header if items exist
+    # ------------------------------------------------------------------ #
+    if maint_items:
+        maint_heading = doc.add_paragraph()
+        _set_font(maint_heading.add_run("Annual Maintenance"))
+        _build_items_table(maint_items)
+
+    # ------------------------------------------------------------------ #
+    # 6. TERMS & CONDITIONS HEADING (before the terms table — matches original)
     # ------------------------------------------------------------------ #
     tnc_heading = doc.add_paragraph()
-    tnc_run = tnc_heading.add_run("Terms & Conditions:")
-    tnc_run.bold = True
-    tnc_run.font.size = Pt(10)
+    _set_font(tnc_heading.add_run("Terms & Conditions:"), bold=True)
 
-    warranty_heading = doc.add_paragraph()
-    warranty_run = warranty_heading.add_run("Warranty Terms:")
-    warranty_run.bold = True
-    warranty_run.font.size = Pt(10)
-
-    doc.add_paragraph(
-        sheet.get("warranty") or "Standard 12 month warranty against manufacturing defects."
+    # ------------------------------------------------------------------ #
+    # 7. TERMS TABLE — 3 cols, no borders
+    # Col widths: 1.45", 0.19", 4.74" (matching original)
+    # ------------------------------------------------------------------ #
+    validity_text = (
+        f"{sheet.get('quotation_validity_days', 90)} days from the date of quotation."
     )
+    terms_rows_data = [
+        ("Payment Term", sheet.get("payment_term") or "TBD"),
+        ("Quotation Validity", validity_text),
+        ("Lead Time", sheet.get("lead_time") or "30 working days from signoff"),
+        ("Local Tax", sheet.get("local_tax") or "Prices quoted in SGD are subjected to Singapore GST"),
+        ("Warranty", sheet.get("warranty") or "Standard 12 month against manufacturing defects"),
+    ]
+    if notes_exclusions:
+        terms_rows_data.append(("Note(s)", "\n".join(str(n) for n in notes_exclusions)))
 
-    excl_heading = doc.add_paragraph()
-    excl_run = excl_heading.add_run("Exclusions from Warranty:")
-    excl_run.bold = True
-    excl_run.font.size = Pt(10)
+    terms_tbl = doc.add_table(rows=len(terms_rows_data), cols=3)
+    _remove_table_borders(terms_tbl)
+    for row in terms_tbl.rows:
+        row.cells[0].width = Inches(1.45)
+        row.cells[1].width = Inches(0.19)
+        row.cells[2].width = Inches(4.74)
 
-    doc.add_paragraph(
+    for ri, (label, value) in enumerate(terms_rows_data):
+        _cell_write(terms_tbl.rows[ri].cells[0], label, bold=True)
+        _cell_write(terms_tbl.rows[ri].cells[1], ":")
+        _cell_write(terms_tbl.rows[ri].cells[2], value)
+
+    # ------------------------------------------------------------------ #
+    # 8. WARRANTY T&C SECTION
+    # ------------------------------------------------------------------ #
+    warranty_para = doc.add_paragraph()
+    _set_font(warranty_para.add_run("Warranty Terms:"), bold=True)
+
+    excl_para = doc.add_paragraph()
+    _set_font(excl_para.add_run("Exclusions from Warranty:"), bold=True)
+
+    liability_para = doc.add_paragraph()
+    liability_para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    _set_font(liability_para.add_run(
         "NEXTAN assumes no liability as a consequence of following circumstances, "
         "under which will be automatically excluded for warranty:"
-    )
+    ))
 
-    for excl in warranty_exclusions:
-        p = doc.add_paragraph(style="List Bullet")
-        p.add_run(excl)
+    for excl in (warranty_exclusions or []):
+        p = doc.add_paragraph(style="List Paragraph")
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        _set_font(p.add_run(excl))
 
-    # Additional T&C from global + per-sheet additions
-    all_tnc = global_tnc + sheet_tnc
-    if all_tnc:
-        for item in all_tnc:
-            p = doc.add_paragraph(style="List Bullet")
-            p.add_run(item)
-
-    doc.add_paragraph()  # spacer
+    for tnc_item in ((global_tnc or []) + (sheet_tnc or [])):
+        p = doc.add_paragraph(style="List Paragraph")
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        _set_font(p.add_run(tnc_item))
 
     # ------------------------------------------------------------------ #
-    # 8. CLOSING PARAGRAPH
+    # 9. CLOSING PARAGRAPH
     # ------------------------------------------------------------------ #
-    closing = doc.add_paragraph(
+    closing = doc.add_paragraph()
+    closing.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    _set_font(closing.add_run(
         "We trust that the above price is acceptable to you and look forward to receiving "
         "your favourable reply soon. Should you have any further queries, please do not "
         "hesitate to contact us."
-    )
-    closing.runs[0].font.size = Pt(10)
-
-    doc.add_paragraph()  # spacer
+    ))
 
     # ------------------------------------------------------------------ #
-    # 9. SIGNATURE + SIGN-OFF TABLE
+    # 10. SIGN-OFF TABLE — 4r x 3c, no borders
+    # Col widths: 2.422", 1.053", 1.053" (matching original)
+    # Signature image embedded in r0c0 below "Yours faithfully" (matches original)
     # ------------------------------------------------------------------ #
+    signoff_tbl = doc.add_table(rows=4, cols=3)
+    _remove_table_borders(signoff_tbl)
+    for row in signoff_tbl.rows:
+        row.cells[0].width = Inches(2.422)
+        row.cells[1].width = Inches(1.053)
+        row.cells[2].width = Inches(1.053)
+
+    # r0c0: "Yours faithfully" + signature image below
+    r0c0 = signoff_tbl.rows[0].cells[0]
+    r0c0.text = ""
+    yf_para = r0c0.paragraphs[0]
+    _set_font(yf_para.add_run("Yours faithfully"))
     if signature_url:
         sig_bytes = _fetch_image(signature_url)
         if sig_bytes:
-            p = doc.add_paragraph()
-            p.add_run().add_picture(sig_bytes, width=Inches(1.5))
+            sig_para = r0c0.add_paragraph()
+            sig_para.add_run().add_picture(sig_bytes, width=Inches(0.94))
 
-    # Sign-off table: 2 cols (content | blank — matches sample)
-    signoff_rows = ["Yours faithfully"]
-    if company_contact_name:
-        signoff_rows.append(company_contact_name)
-    if company_contact_email:
-        signoff_rows.append(f"Email\t: {company_contact_email}")
-    if company_contact_phone:
-        signoff_rows.append(f"Phone\t: {company_contact_phone}")
-
-    if signoff_rows:
-        signoff_table = doc.add_table(rows=len(signoff_rows), cols=2)
-        _remove_table_borders(signoff_table)
-        for i, text in enumerate(signoff_rows):
-            signoff_table.rows[i].cells[0].text = text
+    # r1: name, r2: email, r3: phone
+    _cell_write(signoff_tbl.rows[1].cells[0], company_contact_name or "")
+    _cell_write(signoff_tbl.rows[2].cells[0],
+                f"Email\t: {company_contact_email}" if company_contact_email else "")
+    _cell_write(signoff_tbl.rows[3].cells[0],
+                f"Phone\t: {company_contact_phone}" if company_contact_phone else "")
 
     # ------------------------------------------------------------------ #
     # Save to bytes
