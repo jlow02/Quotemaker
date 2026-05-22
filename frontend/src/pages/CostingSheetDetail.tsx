@@ -18,6 +18,7 @@ import { LineItemTable } from '../components/costing/LineItemTable';
 import { AddLineItemDialog } from '../components/costing/AddLineItemDialog';
 import { TermsAndNotesPanel } from '../components/costing/TermsAndNotesPanel';
 import CostingSheetTotals from '../components/costing/CostingSheetTotals';
+import QuotePreview from '../components/costing/QuotePreview';
 
 /**
  * @purpose Renders the detailed view of a costing sheet, including scenarios, line items, and financial calculations.
@@ -119,6 +120,7 @@ const CostingSheetDetail: React.FC = () => {
         onDiscountValueChange={handleDiscountValueChange}
         onGstToggle={handleGstToggle}
       />
+      <QuotePreview scenarioId={activeScenarioId || ''} />
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="outline" onClick={() => sheetId && navigate('/sheets/' + sheetId + '/exports')}>
           <History className="mr-2 h-4 w-4" />View Exports
