@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LineItem } from '../../api/services';
 
 interface CostingSheetTotalsProps {
   scenarioId: string;
@@ -19,6 +20,8 @@ interface CostingSheetTotalsProps {
   onDiscountTypeChange: (value: string | null) => void;
   onDiscountValueChange: (value: number | null) => void;
   onGstToggle: (value: boolean) => void;
+  /** Line items used for client-side totals when server totals are not populated. */
+  lineItems?: LineItem[];
 }
 
 const formatSGD = (val: string | number | null | undefined): string => {
@@ -33,10 +36,11 @@ const formatSGD = (val: string | number | null | undefined): string => {
 
 /**
  * @purpose Renders discount/GST controls and the pricing summary panel for a scenario.
- * Receives server-computed totals from the backend -- does NOT perform any client-side math.
- * @inputs discountType, discountValue, showGst, totals, isSaving, and change handlers
- * @outputs JSX with discount controls, GST toggle, and read-only pricing summary
- * @owner [DeepSeek -- reviewed by Claude]
+ * Uses server-computed totals when available; falls back to client-side computation
+ * from lineItems (same approach as MarginSummary). Server totals field is defined in
+ * ScenarioRead but the router layer does not currently populate it, so the client-side
+ * fallback is always active.
+ * @owner [DeepSeek — client-side fallback added by Claude]
  */
 const CostingSheetTotals: React.FC<CostingSheetTotalsProps> = ({
   discountType,
@@ -47,9 +51,48 @@ const CostingSheetTotals: React.FC<CostingSheetTotalsProps> = ({
   onDiscountTypeChange,
   onDiscountValueChange,
   onGstToggle,
+  lineItems,
 }) => {
+  /**
+   * Client-side totals computation. Only runs when server totals are absent.
+   * Uses the same visible top-level item filter as MarginSummary.
+   */
+  const computedTotals = useMemo(() => {
+    if (!lineItems || lineItems.length === 0) return null;
+
+    const visibleTopLevel = lineItems.filter(
+      (item) => item.is_visible !== false && !item.parent_line_item_id
+    );
+
+    const subtotal = visibleTopLevel.reduce(
+      (sum, item) => sum + Number(item.computed?.line_total_sgd ?? 0),
+      0
+    );
+
+    let discountAmt = 0;
+    if (discountType === 'percentage' && discountValue != null) {
+      discountAmt = (subtotal * discountValue) / 100;
+    } else if (discountType === 'flat' && discountValue != null) {
+      discountAmt = discountValue;
+    }
+
+    const totalBeforeGst = subtotal - discountAmt;
+    const gstAmount = showGst ? totalBeforeGst * 0.09 : 0;
+    const grandTotal = totalBeforeGst + gstAmount;
+
+    return {
+      subtotal_sgd: subtotal,
+      discount_amount_sgd: discountAmt,
+      total_before_gst_sgd: totalBeforeGst,
+      gst_amount_sgd: gstAmount,
+      grand_total_sgd: grandTotal,
+    };
+  }, [lineItems, discountType, discountValue, showGst]);
+
+  // Prefer server totals; fall back to client-computed
+  const resolvedTotals = totals ?? computedTotals;
   const discountAmount =
-    totals?.discount_amount_sgd != null ? Number(totals.discount_amount_sgd) : 0;
+    resolvedTotals?.discount_amount_sgd != null ? Number(resolvedTotals.discount_amount_sgd) : 0;
 
   return (
     <div className="space-y-4 mt-4 p-4 bg-white border border-gray-100 rounded-lg shadow-sm">
@@ -120,29 +163,29 @@ const CostingSheetTotals: React.FC<CostingSheetTotalsProps> = ({
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Subtotal</span>
-            <span>{formatSGD(totals?.subtotal_sgd)}</span>
+            <span>{formatSGD(resolvedTotals?.subtotal_sgd)}</span>
           </div>
           {discountType !== null && discountAmount > 0 && (
             <div className="flex justify-between text-red-600">
               <span>Discount</span>
-              <span>- {formatSGD(totals?.discount_amount_sgd)}</span>
+              <span>- {formatSGD(resolvedTotals?.discount_amount_sgd)}</span>
             </div>
           )}
           {showGst && (
             <div className="flex justify-between text-gray-600">
               <span>Total before GST</span>
-              <span>{formatSGD(totals?.total_before_gst_sgd)}</span>
+              <span>{formatSGD(resolvedTotals?.total_before_gst_sgd)}</span>
             </div>
           )}
           {showGst && (
             <div className="flex justify-between text-gray-600">
               <span>GST (9%)</span>
-              <span>{formatSGD(totals?.gst_amount_sgd)}</span>
+              <span>{formatSGD(resolvedTotals?.gst_amount_sgd)}</span>
             </div>
           )}
           <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-300">
             <span>TOTAL (SGD)</span>
-            <span>{formatSGD(totals?.grand_total_sgd)}</span>
+            <span>{formatSGD(resolvedTotals?.grand_total_sgd)}</span>
           </div>
         </div>
       </div>
