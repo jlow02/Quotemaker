@@ -8,7 +8,7 @@ interface Html2PdfOptions {
   margin?: number | number[];
   filename?: string;
   image?: { type: string; quality: number };
-  html2canvas?: { scale: number; useCORS: boolean };
+  html2canvas?: { scale?: number; useCORS?: boolean; allowTaint?: boolean; logging?: boolean };
   jsPDF?: { unit: string; format: string; orientation: string };
 }
 
