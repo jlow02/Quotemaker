@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Eye, EyeOff, Loader2, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { updateLineItem } from '../../api/services';
+import { updateLineItem, setBundleOverride, addBundleComponent } from '../../api/services';
 import type { LineItem } from '../../api/services';
 
 const SECTIONS = ['Hardware', 'Software', 'Professional Fees', 'Maintenance'] as const;
@@ -228,6 +228,8 @@ interface LineItemTableProps {
   onDeleteLineItem: (itemId: string) => void;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
+  onAddBundleComponent: (parentId: string) => void;
+  onSetBundleOverride: (itemId: string, price: string | null) => void;
 }
 
 /**
@@ -243,7 +245,12 @@ export function LineItemTable({
   onDeleteLineItem,
   selectedIds,
   onSelectionChange,
+  onAddBundleComponent,
+  onSetBundleOverride,
 }: LineItemTableProps): JSX.Element {
+  const topLevelItems = lineItems.filter((i) => !i.parent_line_item_id);
+  const [expandedBundles, setExpandedBundles] = useState<Set<string>>(new Set(topLevelItems.filter(i => i.is_bundle_parent).map(i => i.id)));
+
   const bySection: Record<Section, LineItem[]> = {
     Hardware: [],
     Software: [],
@@ -273,8 +280,6 @@ export function LineItemTable({
         return sum + (lt > 0 ? lt : Number(i.qty) * Number(i.cost_rate));
       }, 0);
 
-  const topLevelItems = lineItems.filter((i) => !i.parent_line_item_id);
-
   const allSelected = topLevelItems.length > 0 && topLevelItems.every(i => selectedIds.has(i.id));
 
   const handleSelectAll = () => {
@@ -295,18 +300,260 @@ export function LineItemTable({
     onSelectionChange(next);
   };
 
+  const toggleBundle = (id: string) => {
+    const next = new Set(expandedBundles);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setExpandedBundles(next);
+  };
+
+  const BundleParentRow = ({ item }: { item: LineItem }) => {
+    const [description, setDescription] = useState(item.description);
+    const [qty, setQty] = useState(String(item.qty));
+    const [unit, setUnit] = useState(item.unit);
+    const [visible, setVisible] = useState(item.is_visible ?? true);
+    const [overridePrice, setOverridePrice] = useState(item.bundle_override_price ?? '');
+
+    const pendingRef = useRef<Partial<Parameters<typeof updateLineItem>[1]>>({});
+    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+    const qc = useQueryClient();
+
+    const saveMutation = useMutation({
+      mutationFn: (data: Parameters<typeof updateLineItem>[1]) =>
+        updateLineItem(item.id, data),
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ['lineItems', scenarioId] });
+      },
+    });
+
+    const scheduleSave = useCallback(
+      (update: Partial<Parameters<typeof updateLineItem>[1]>) => {
+        pendingRef.current = { ...pendingRef.current, ...update };
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          const payload = { ...pendingRef.current };
+          pendingRef.current = {};
+          if (Object.keys(payload).length > 0) {
+            saveMutation.mutate(payload);
+          }
+        }, 800);
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [item.id, scenarioId],
+    );
+
+    const handleVisible = () => {
+      const next = !visible;
+      setVisible(next);
+      scheduleSave({ is_visible: next });
+    };
+
+    const subComponents = lineItems.filter((li) => li.parent_line_item_id === item.id);
+    const subTotal = subComponents.reduce((sum, sub) => {
+      const lt = Number(sub.computed?.line_total_sgd ?? 0);
+      return sum + (lt > 0 ? lt : Number(sub.qty) * Number(sub.cost_rate));
+    }, 0);
+
+    const lineTotal = item.is_bundle_override_active && item.bundle_override_price
+      ? Number(item.bundle_override_price)
+      : subTotal;
+
+    const isExpanded = expandedBundles.has(item.id);
+    const isSaving = saveMutation.isPending;
+
+    return (
+      <>
+        <tr className={`border-b last:border-b-0 transition-opacity ${!visible ? 'opacity-40' : ''}`}>
+          <td className='px-2 py-1.5 w-8'>
+            <input
+              type='checkbox'
+              className='h-4 w-4'
+              checked={selectedIds.has(item.id)}
+              onChange={(e) => handleSelect(item.id, e.target.checked)}
+            />
+          </td>
+          <td className="px-2 py-1.5">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                onClick={() => toggleBundle(item.id)}
+                title={isExpanded ? 'Collapse bundle' : 'Expand bundle'}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+              {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+              <Input
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  scheduleSave({ description: e.target.value });
+                }}
+                className="h-8 text-sm min-w-[140px]"
+              />
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 ml-1">
+                BUNDLE
+              </span>
+            </div>
+          </td>
+          <td className="px-2 py-1.5">
+            <Input
+              type="number"
+              min="0"
+              step="any"
+              value={qty}
+              onChange={(e) => {
+                setQty(e.target.value);
+                scheduleSave({ qty: e.target.value });
+              }}
+              className="h-8 text-sm w-16 text-right"
+            />
+          </td>
+          <td className="px-2 py-1.5">
+            <Input
+              value={unit}
+              onChange={(e) => {
+                setUnit(e.target.value);
+                scheduleSave({ unit: e.target.value });
+              }}
+              className="h-8 text-sm w-20"
+            />
+          </td>
+          <td colSpan={3} className="px-2 py-1.5 text-sm text-muted-foreground italic">
+            Price from components
+          </td>
+          <td className="px-2 py-1.5 text-right text-sm font-semibold tabular-nums">
+            {item.is_bundle_override_active && item.bundle_override_price ? (
+              <span className="italic">{fmtSGD(lineTotal)}</span>
+            ) : (
+              fmtSGD(lineTotal)
+            )}
+          </td>
+          <td className="px-2 py-1.5 text-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleVisible}
+              title={visible ? 'Hide from quote' : 'Show on quote'}
+            >
+              {visible ? (
+                <Eye className="h-4 w-4 text-green-600" />
+              ) : (
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+          </td>
+          <td className="px-2 py-1.5 text-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onDeleteLineItem(item.id)}
+              title="Delete item"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </td>
+        </tr>
+        {isExpanded && (
+          <>
+            {/* Override price row */}
+            <tr className="bg-blue-50/30 border-b">
+              <td colSpan={2} />
+              <td colSpan={7} className="px-3 py-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground shrink-0">Override price (optional):</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="h-7 text-xs w-36"
+                    placeholder="Leave blank for component sum"
+                    value={overridePrice}
+                    onChange={(e) => setOverridePrice(e.target.value)}
+                    onBlur={() => onSetBundleOverride(item.id, overridePrice.trim() || null)}
+                  />
+                  {item.is_bundle_override_active && (
+                    <span className="text-xs text-blue-600">Override active</span>
+                  )}
+                  {item.is_bundle_override_active && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2"
+                      onClick={() => { setOverridePrice(''); onSetBundleOverride(item.id, null); }}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </td>
+              <td colSpan={2} />
+            </tr>
+            {/* Sub-component rows */}
+            {item.sub_components?.map((sub) => (
+              <tr key={sub.id} className="border-b bg-muted/5">
+                <td />
+                <td className="px-2 py-1.5 pl-8">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <span className="shrink-0">↳</span>
+                    <span>{sub.description}</span>
+                  </div>
+                </td>
+                <td className="px-2 py-1.5 text-sm text-muted-foreground text-center">{sub.qty}</td>
+                <td className="px-2 py-1.5 text-sm text-muted-foreground">{sub.unit}</td>
+                <td className="px-2 py-1.5 text-sm text-muted-foreground">
+                  <span className="text-xs mr-1">{sub.cost_currency}</span>{sub.cost_rate}
+                </td>
+                <td colSpan={2} />
+                <td className="px-2 py-1.5 text-right text-sm tabular-nums text-muted-foreground">
+                  {fmtSGD(sub.computed?.line_total_sgd)}
+                </td>
+                <td />
+                <td className="px-2 py-1.5 text-center">
+                  <Button variant="ghost" size="icon" className="h-6 w-6"
+                    onClick={() => onDeleteLineItem(sub.id)} title="Remove component">
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+            {/* Add component button row */}
+            <tr className="border-b">
+              <td colSpan={11} className="px-4 py-1.5">
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                  onClick={() => onAddBundleComponent(item.id)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add component to bundle
+                </Button>
+              </td>
+            </tr>
+          </>
+        )}
+      </>
+    );
+  };
+
+  // == Render =================================================================
+
   return (
     <div className="rounded-lg border bg-card shadow-sm overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-muted-foreground text-xs">
-            <th className='px-2 py-2 w-8'>
-              <input
-                type='checkbox'
-                className='h-4 w-4'
-                checked={allSelected}
-                onChange={handleSelectAll}
-              />
+            <th className="px-2 py-2 w-8">
+              <input type="checkbox" className="h-4 w-4"
+                checked={allSelected} onChange={handleSelectAll} />
             </th>
             <th className="px-2 py-2 text-left font-medium">Description</th>
             <th className="px-2 py-2 text-right font-medium w-16">Qty</th>
@@ -338,28 +585,28 @@ export function LineItemTable({
             return (
               <tbody key={section}>
                 <tr className="bg-muted/30">
-                  <td
-                    colSpan={11}
-                    className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                  >
+                  <td colSpan={11}
+                    className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {section}
                   </td>
                 </tr>
-                {items.map((item) => (
-                  <EditableRow
-                    key={item.id}
-                    item={item}
-                    scenarioId={scenarioId}
-                    onDelete={onDeleteLineItem}
-                    selected={selectedIds.has(item.id)}
-                    onSelect={handleSelect}
-                  />
-                ))}
+                {items.map((item) =>
+                  item.is_bundle_parent ? (
+                    <BundleParentRow key={item.id} item={item} />
+                  ) : (
+                    <EditableRow
+                      key={item.id}
+                      item={item}
+                      scenarioId={scenarioId}
+                      onDelete={onDeleteLineItem}
+                      selected={selectedIds.has(item.id)}
+                      onSelect={handleSelect}
+                    />
+                  )
+                )}
                 <tr className="bg-muted/10 border-t">
-                  <td
-                    colSpan={8}
-                    className="px-3 py-1 text-xs text-right text-muted-foreground italic"
-                  >
+                  <td colSpan={8}
+                    className="px-3 py-1 text-xs text-right text-muted-foreground italic">
                     {section} subtotal
                   </td>
                   <td className="px-2 py-1 text-right text-sm font-semibold tabular-nums">
