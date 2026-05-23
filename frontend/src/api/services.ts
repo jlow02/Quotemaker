@@ -971,6 +971,14 @@ export async function deleteLineItem(lineItemId: string): Promise<void> {
   await apiClient.delete<void>(`/api/v1/line-items/${lineItemId}`);
 }
 
+export async function bulkDeleteLineItems(scenarioId: string, ids: string[]): Promise<void> {
+  /**
+   * @purpose Delete multiple line items in bulk for a given scenario.
+   * @owner DeepSeek
+   */
+  await apiClient.delete<void>(`/api/v1/scenarios/${scenarioId}/line-items/bulk`, { data: { ids } });
+}
+
 /**
  * @purpose Adds a component to a bundle line item.
  * @param lineItemId The ID of the parent bundle line item.
