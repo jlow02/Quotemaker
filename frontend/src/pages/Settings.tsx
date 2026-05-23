@@ -566,3 +566,6 @@ const Settings: React.FC = () => {
       </Tabs>
     </div>
   );
+};
+
+export default Settings;
