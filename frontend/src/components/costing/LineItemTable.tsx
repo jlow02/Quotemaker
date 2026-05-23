@@ -31,9 +31,11 @@ interface EditableRowProps {
   item: LineItem;
   scenarioId: string;
   onDelete: (id: string) => void;
+  selected: boolean;
+  onSelect: (id: string, checked: boolean) => void;
 }
 
-function EditableRow({ item, scenarioId, onDelete }: EditableRowProps) {
+function EditableRow({ item, scenarioId, onDelete, selected, onSelect }: EditableRowProps) {
   const [description, setDescription] = useState(item.description);
   const [qty, setQty] = useState(String(item.qty));
   const [unit, setUnit] = useState(item.unit);
@@ -89,6 +91,14 @@ function EditableRow({ item, scenarioId, onDelete }: EditableRowProps) {
 
   return (
     <tr className={`border-b last:border-b-0 transition-opacity ${!visible ? 'opacity-40' : ''}`}>
+      <td className='px-2 py-1.5 w-8'>
+        <input
+          type='checkbox'
+          className='h-4 w-4'
+          checked={selected}
+          onChange={(e) => onSelect(item.id, e.target.checked)}
+        />
+      </td>
       <td className="px-2 py-1.5">
         <div className="flex items-center gap-1">
           {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
@@ -216,6 +226,8 @@ interface LineItemTableProps {
   lineItems: LineItem[];
   onAddLineItem: (scenarioId: string) => void;
   onDeleteLineItem: (itemId: string) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }
 
 /**
@@ -229,6 +241,8 @@ export function LineItemTable({
   lineItems,
   onAddLineItem,
   onDeleteLineItem,
+  selectedIds,
+  onSelectionChange,
 }: LineItemTableProps): JSX.Element {
   const bySection: Record<Section, LineItem[]> = {
     Hardware: [],
@@ -261,11 +275,39 @@ export function LineItemTable({
 
   const topLevelItems = lineItems.filter((i) => !i.parent_line_item_id);
 
+  const allSelected = topLevelItems.length > 0 && topLevelItems.every(i => selectedIds.has(i.id));
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(topLevelItems.map(i => i.id)));
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    const next = new Set(selectedIds);
+    if (checked) {
+      next.add(id);
+    } else {
+      next.delete(id);
+    }
+    onSelectionChange(next);
+  };
+
   return (
     <div className="rounded-lg border bg-card shadow-sm overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-muted-foreground text-xs">
+            <th className='px-2 py-2 w-8'>
+              <input
+                type='checkbox'
+                className='h-4 w-4'
+                checked={allSelected}
+                onChange={handleSelectAll}
+              />
+            </th>
             <th className="px-2 py-2 text-left font-medium">Description</th>
             <th className="px-2 py-2 text-right font-medium w-16">Qty</th>
             <th className="px-2 py-2 text-left font-medium w-20">Unit</th>
@@ -283,7 +325,7 @@ export function LineItemTable({
         {topLevelItems.length === 0 ? (
           <tbody>
             <tr>
-              <td colSpan={10} className="h-24 text-center text-muted-foreground">
+              <td colSpan={11} className="h-24 text-center text-muted-foreground">
                 No line items yet. Click &quot;Add Line Item&quot; to start.
               </td>
             </tr>
@@ -297,7 +339,7 @@ export function LineItemTable({
               <tbody key={section}>
                 <tr className="bg-muted/30">
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                   >
                     {section}
@@ -309,11 +351,13 @@ export function LineItemTable({
                     item={item}
                     scenarioId={scenarioId}
                     onDelete={onDeleteLineItem}
+                    selected={selectedIds.has(item.id)}
+                    onSelect={handleSelect}
                   />
                 ))}
                 <tr className="bg-muted/10 border-t">
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-3 py-1 text-xs text-right text-muted-foreground italic"
                   >
                     {section} subtotal
