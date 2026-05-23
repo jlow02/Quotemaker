@@ -25,6 +25,7 @@ interface AddLineItemDialogProps {
     cost_currency: string;
     markup_pct: string;
     contingency_pct: string;
+    is_bundle_parent: boolean;
   }) => void;
   isLoading: boolean;
 }
@@ -38,6 +39,7 @@ const DEFAULT_FORM = {
   cost_currency: 'SGD',
   markup_pct: '0',
   contingency_pct: '0',
+  is_bundle_parent: false,
 };
 
 /**
@@ -60,6 +62,7 @@ export function AddLineItemDialog({ open, onClose, onSubmit, isLoading }: AddLin
       ...form,
       markup_pct: String(Number(form.markup_pct) / 100),
       contingency_pct: String(Number(form.contingency_pct) / 100),
+      is_bundle_parent: form.is_bundle_parent,
     });
   };
 
@@ -72,9 +75,16 @@ export function AddLineItemDialog({ open, onClose, onSubmit, isLoading }: AddLin
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(); }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Line Item</DialogTitle>
+          <DialogTitle>{form.is_bundle_parent ? 'Add Bundle / Group' : 'Add Line Item'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          {/* Bundle / Group toggle */}
+          <div className='flex items-center gap-2 pb-1'>
+            <input type='checkbox' id='is_bundle_parent' checked={form.is_bundle_parent} onChange={(e) => setForm(prev => ({...prev, is_bundle_parent: e.target.checked}))} className='h-4 w-4 cursor-pointer' />
+            <Label htmlFor='is_bundle_parent' className='cursor-pointer'>Bundle / Group item</Label>
+          </div>
+          {form.is_bundle_parent && <p className='text-xs text-muted-foreground -mt-2 mb-1'>Groups multiple components under one quoted price. Add components after creating.</p>}
+
           {/* Section */}
           <div className="space-y-1">
             <Label htmlFor="section">Section</Label>
@@ -127,60 +137,64 @@ export function AddLineItemDialog({ open, onClose, onSubmit, isLoading }: AddLin
           </div>
 
           {/* Cost Rate + Currency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="cost_rate">Unit Cost</Label>
-              <Input
-                id="cost_rate"
-                type="number"
-                min="0"
-                step="any"
-                value={form.cost_rate}
-                onChange={(e) => handleChange('cost_rate', e.target.value)}
-              />
+          {!form.is_bundle_parent && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="cost_rate">Unit Cost</Label>
+                <Input
+                  id="cost_rate"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.cost_rate}
+                  onChange={(e) => handleChange('cost_rate', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cost_currency">Currency</Label>
+                <select
+                  id="cost_currency"
+                  value={form.cost_currency}
+                  onChange={(e) => handleChange('cost_currency', e.target.value)}
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {['SGD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'MYR'].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="cost_currency">Currency</Label>
-              <select
-                id="cost_currency"
-                value={form.cost_currency}
-                onChange={(e) => handleChange('cost_currency', e.target.value)}
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {['SGD', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'MYR'].map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
           {/* Markup + Contingency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="markup_pct">Markup %</Label>
-              <Input
-                id="markup_pct"
-                type="number"
-                min="0"
-                step="any"
-                value={form.markup_pct}
-                onChange={(e) => handleChange('markup_pct', e.target.value)}
-                placeholder="0"
-              />
+          {!form.is_bundle_parent && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="markup_pct">Markup %</Label>
+                <Input
+                  id="markup_pct"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.markup_pct}
+                  onChange={(e) => handleChange('markup_pct', e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contingency_pct">Contingency %</Label>
+                <Input
+                  id="contingency_pct"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.contingency_pct}
+                  onChange={(e) => handleChange('contingency_pct', e.target.value)}
+                  placeholder="0"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="contingency_pct">Contingency %</Label>
-              <Input
-                id="contingency_pct"
-                type="number"
-                min="0"
-                step="any"
-                value={form.contingency_pct}
-                onChange={(e) => handleChange('contingency_pct', e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
