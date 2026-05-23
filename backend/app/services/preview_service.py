@@ -181,8 +181,8 @@ body {
 <div class="tnc-section">
   <h3>Terms &amp; Conditions</h3>
   <p><strong>Payment:</strong> {{ sheet.payment_term or 'To be advised' }}</p>
-  <p><strong>Lead Time:</strong> {{ sheet.lead_time }}</p>
-  <p><strong>Warranty:</strong> {{ sheet.warranty }}</p>
+  <p><strong>Lead Time:</strong> {{ sheet.lead_time or '30 working days' }}</p>
+  <p><strong>Warranty:</strong> {{ sheet.warranty or '12 months standard' }}</p>
   {% if sheet.local_tax %}<p><strong>Tax:</strong> {{ sheet.local_tax }}</p>{% endif %}
 
   <p><strong>Warranty Exclusions:</strong></p>
