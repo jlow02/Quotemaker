@@ -87,6 +87,18 @@ class ReorderRequest(BaseModel):
     items: list[ReorderItem]
 
 
+class BulkDeleteRequest(BaseModel):
+    """
+    Purpose: Body for DELETE /scenarios/{scenario_id}/line-items/bulk.
+             Delete multiple line items by ID in a single request.
+             Silently skips IDs that don't belong to the scenario.
+    Inputs: ids (list of str UUIDs)
+    Outputs: N/A
+    Owner: [Claude]
+    """
+    ids: list[uuid.UUID]
+
+
 class LineItemRead(BaseModel):
     """
     Purpose: Full line item response including computed pricing fields.
@@ -113,16 +125,4 @@ class LineItemRead(BaseModel):
     is_visible: bool
     is_bundle_parent: bool
     bundle_override_price: Optional[Decimal] = None
-    is_bundle_override_active: bool
-    created_at: datetime
-    updated_at: datetime
-
-    # Computed at router layer — None until injected
-    computed: Optional[ComputedLineItemPricing] = None
-
-    # Bundle sub-components (populated when is_bundle_parent=True)
-    sub_components: list["LineItemRead"] = []
-
-
-# Allow self-reference
-LineItemRead.model_rebuild()
+    is_b
