@@ -1,8 +1,7 @@
-// FILE: frontend/src/pages/CostingSheetDetail.tsx
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Download, History, ArrowLeft, LayoutTemplate } from 'lucide-react';
+import { Loader2, Download, History, ArrowLeft, LayoutTemplate, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Separator } from '../components/ui/separator';
 import { Toaster } from '@/components/ui/toaster';
@@ -10,7 +9,7 @@ import { useToast } from '../components/ui/use-toast';
 import { useUiStore } from '../store/uiStore';
 import {
   getCostingSheet, listScenarios, listFxOverrides, listLineItems,
-  createLineItem, deleteLineItem, createExport, downloadExport,
+  createLineItem, deleteLineItem, bulkDeleteLineItems, createExport, downloadExport,
   getLiveFxRates, createScenario, updateScenario, listTemplates, applyTemplate,
   LineItem,
 } from '../api/services';
@@ -93,6 +92,9 @@ const CostingSheetDetail: React.FC = () => {
   const createScenarioMutation = useMutation({ mutationFn: (name: string) => createScenario(sheetId!, { name, display_order: (scenariosQuery.data?.length ?? 0) + 1 }), onSuccess: (newScenario) => { queryClient.invalidateQueries({ queryKey: ['scenarios', sheetId] }); setActiveScenario(newScenario.id); }, onError: (error) => { toast({ title: 'Failed to create scenario', description: error.message, variant: 'destructive' }); } });
   const createLineItemMutation = useMutation({ mutationFn: (data: Parameters<typeof createLineItem>[1]) => createLineItem(activeScenarioId!, data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lineItems', activeScenarioId] }); setAddItemOpen(false); toast({ title: 'Line item added' }); }, onError: (error: Error) => { toast({ title: 'Failed to add line item', description: error.message, variant: 'destructive' }); } });
   const deleteLineItemMutation = useMutation({ mutationFn: (itemId: string) => deleteLineItem(itemId), onSuccess: (data, itemId) => { queryClient.setQueryData(['lineItems', activeScenarioId], (old: LineItem[] | undefined) => old?.filter((item) => item.id !== itemId) ?? []); }, onError: (error: Error) => { toast({ title: 'Failed to delete item', description: error.message, variant: 'destructive' }); } });
+  const [selectedLineItemIds, setSelectedLineItemIds] = useState<Set<string>>(new Set());
+  useEffect(() => { setSelectedLineItemIds(new Set()); }, [activeScenarioId]);
+  const bulkDeleteMutation = useMutation({ mutationFn: (ids: string[]) => bulkDeleteLineItems(activeScenarioId!, ids), onSuccess: (_data, ids) => { const idSet = new Set(ids); queryClient.setQueryData(['lineItems', activeScenarioId], (old: LineItem[] | undefined) => old ? old.filter((item) => !idSet.has(item.id)) : []); setSelectedLineItemIds(new Set()); toast({ title: ids.length + ' item' + (ids.length > 1 ? 's' : '') + ' deleted' }); }, onError: (error: Error) => { toast({ title: 'Bulk delete failed', description: error.message, variant: 'destructive' }); } });
   const exportMutation = useMutation({ mutationFn: (scenarioId: string) => createExport(scenarioId, { file_type: 'docx' }), onSuccess: async (exportData) => { try { const response = await downloadExport(exportData.id); const signedUrl = response?.signed_url; if (!signedUrl) throw new Error('No download URL returned from server'); const a = document.createElement('a'); a.href = signedUrl; a.download = 'quote_' + exportData.id + '.docx'; a.click(); a.remove(); toast({ title: 'Export downloaded!' }); } catch (_dlErr) { toast({ title: 'Export saved', description: 'File saved to exports history.' }); } }, onError: (error) => { toast({ title: 'Export failed', description: error.message, variant: 'destructive' }); } });
   const applyTemplateMutation = useMutation({
     mutationFn: () => applyTemplate(selectedTemplateId!, sheetId!),
@@ -184,7 +186,12 @@ const CostingSheetDetail: React.FC = () => {
           </DialogContent>
         </Dialog>
       </div>
-      {activeScenario && (<LineItemTable scenarioId={activeScenarioId || ''} lineItems={(lineItemsQuery.data || []) as LineItem[]} onAddLineItem={() => setAddItemOpen(true)} onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)} />)}
+      {activeScenario && (
+        <>
+          {selectedLineItemIds.size > 0 && (<div className='mb-2 flex items-center gap-2'><Button variant='destructive' size='sm' onClick={() => bulkDeleteMutation.mutate(Array.from(selectedLineItemIds))} disabled={bulkDeleteMutation.isPending}>{bulkDeleteMutation.isPending ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <Trash2 className='mr-2 h-4 w-4' />}Delete selected ({selectedLineItemIds.size})</Button><Button variant='ghost' size='sm' onClick={() => setSelectedLineItemIds(new Set())}>Clear selection</Button></div>)}
+          <LineItemTable scenarioId={activeScenarioId || ''} lineItems={(lineItemsQuery.data || []) as LineItem[]} onAddLineItem={() => setAddItemOpen(true)} onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)} selectedIds={selectedLineItemIds} onSelectionChange={setSelectedLineItemIds} />
+        </>
+      )}
       <MarginSummary lineItems={(lineItemsQuery.data || []) as LineItem[]} />
       <CostingSheetTotals
         scenarioId={activeScenarioId || ''}
