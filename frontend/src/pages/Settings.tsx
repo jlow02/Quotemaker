@@ -52,7 +52,7 @@ interface SettingItem {
 interface Template {
   id: string;
   name: string;
-  notes_exclusions: string[] | null;
+  notes_exclusions?: string[] | null;
   created_at: string;
   updated_at: string;
 }
