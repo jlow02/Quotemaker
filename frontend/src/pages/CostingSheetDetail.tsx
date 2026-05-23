@@ -12,6 +12,7 @@ import {
   getCostingSheet, listScenarios, listFxOverrides, listLineItems,
   createLineItem, deleteLineItem, createExport, downloadExport,
   getLiveFxRates, createScenario, updateScenario, listTemplates, applyTemplate,
+  LineItem,
 } from '../api/services';
 import { SheetHeader } from '../components/costing/SheetHeader';
 import { ScenarioTabs } from '../components/costing/ScenarioTabs';
@@ -183,8 +184,8 @@ const CostingSheetDetail: React.FC = () => {
           </DialogContent>
         </Dialog>
       </div>
-      {activeScenario && (<LineItemTable scenarioId={activeScenarioId || ''} lineItems={(lineItemsQuery.data || []) as import('../api/services').LineItem[]} onAddLineItem={() => setAddItemOpen(true)} onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)} />)}
-      <MarginSummary lineItems={(lineItemsQuery.data || []) as import('../api/services').LineItem[]} />
+      {activeScenario && (<LineItemTable scenarioId={activeScenarioId || ''} lineItems={(lineItemsQuery.data || []) as LineItem[]} onAddLineItem={() => setAddItemOpen(true)} onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)} />)}
+      <MarginSummary lineItems={(lineItemsQuery.data || []) as LineItem[]} />
       <CostingSheetTotals
         scenarioId={activeScenarioId || ''}
         discountType={discountType}
@@ -195,15 +196,16 @@ const CostingSheetDetail: React.FC = () => {
         onDiscountTypeChange={handleDiscountTypeChange}
         onDiscountValueChange={handleDiscountValueChange}
         onGstToggle={handleGstToggle}
+        lineItems={(lineItemsQuery.data || []) as LineItem[]}
       />
-      <QuotePreview scenarioId={activeScenarioId || ''} />
+      <QuotePreview scenarioId={activeScenarioId || ''} scenarioName={activeScenario?.name} />
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="outline" onClick={() => sheetId && navigate('/sheets/' + sheetId + '/exports')}>
           <History className="mr-2 h-4 w-4" />View Exports
         </Button>
         <Button onClick={() => activeScenarioId && exportMutation.mutate(activeScenarioId)} disabled={!activeScenarioId || exportMutation.isPending}>
           {exportMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          {exportMutation.isPending ? 'Exporting...' : 'Export DOCX'}
+          {exportMutation.isPending ? 'Exporting...' : `Export DOCX${activeScenario?.name ? ` — ${activeScenario.name}` : ''}`}
         </Button>
       </div>
       {sheet && sheetId && (<TermsAndNotesPanel sheet={sheet as any} sheetId={sheetId} />)}
