@@ -23,7 +23,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -311,7 +310,7 @@ const Settings: React.FC = () => {
                     />
                   </div>
                 </div>
-                <DialogFooter>
+                <div className="flex justify-end gap-2 mt-2">
                   <Button variant="outline" onClick={() => setNewTemplateDialogOpen(false)}>
                     Cancel
                   </Button>
@@ -325,7 +324,7 @@ const Settings: React.FC = () => {
                       'Create Template'
                     )}
                   </Button>
-                </DialogFooter>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
@@ -429,7 +428,7 @@ const Settings: React.FC = () => {
                                     Delete this template? This cannot be undone.
                                   </DialogDescription>
                                 </DialogHeader>
-                                <DialogFooter>
+                                <div className="flex justify-end gap-2 mt-2">
                                   <Button
                                     variant="outline"
                                     onClick={() => setDeleteConfirmId(null)}
@@ -450,7 +449,7 @@ const Settings: React.FC = () => {
                                       'Delete'
                                     )}
                                   </Button>
-                                </DialogFooter>
+                                </div>
                               </DialogContent>
                             </Dialog>
                           </div>
@@ -567,6 +566,3 @@ const Settings: React.FC = () => {
       </Tabs>
     </div>
   );
-};
-
-export default Settings;
