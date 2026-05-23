@@ -43,17 +43,9 @@ interface CostingSheet {
   id: string;
   client_name: string;
   ref_number: string;
-  status: string;
+  quote_title: string;
   created_at: string;
   updated_at: string;
-}
-
-/**
- * Interface for the filter state used in search.
- */
-interface FilterState {
-  client_name: string;
-  ref_number: string;
 }
 
 /**
@@ -124,7 +116,7 @@ const Dashboard: React.FC = () => {
    */
   const duplicateMutation = useMutation({
     mutationFn: (sheetId: string) => duplicateCostingSheet(sheetId),
-    onSuccess: (newSheet: CostingSheet) => {
+    onSuccess: (newSheet: { id: string }) => {
       setDuplicatingId(null);
       toast({
         title: 'Sheet duplicated',
@@ -177,8 +169,8 @@ const Dashboard: React.FC = () => {
    */
   const createMutation = useMutation({
     mutationFn: (data: { client_name: string; ref_number: string }) =>
-      createCostingSheet(data.client_name, data.ref_number),
-    onSuccess: (newSheet: CostingSheet) => {
+      createCostingSheet({ quote_title: data.ref_number, client_name: data.client_name }),
+    onSuccess: (newSheet: { id: string }) => {
       setDialogOpen(false);
       form.reset();
       queryClient.invalidateQueries({ queryKey: ['costingSheets'] });
@@ -366,7 +358,9 @@ const Dashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{sheet.status}</Badge>
+                  {sheet.quote_title && (
+                    <Badge variant="secondary">{sheet.quote_title}</Badge>
+                  )}
                   <span className="text-xs text-gray-400">
                     Created: {format(new Date(sheet.created_at), 'MMM dd, yyyy')}
                   </span>
@@ -384,3 +378,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+                     
