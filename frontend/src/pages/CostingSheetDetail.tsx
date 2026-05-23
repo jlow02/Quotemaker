@@ -11,6 +11,7 @@ import {
   getCostingSheet, listScenarios, listFxOverrides, listLineItems,
   createLineItem, deleteLineItem, bulkDeleteLineItems, createExport, downloadExport,
   getLiveFxRates, createScenario, updateScenario, listTemplates, applyTemplate,
+  addBundleComponent, setBundleOverride,
   LineItem,
 } from '../api/services';
 import { SheetHeader } from '../components/costing/SheetHeader';
@@ -95,6 +96,16 @@ const CostingSheetDetail: React.FC = () => {
   const [selectedLineItemIds, setSelectedLineItemIds] = useState<Set<string>>(new Set());
   useEffect(() => { setSelectedLineItemIds(new Set()); }, [activeScenarioId]);
   const bulkDeleteMutation = useMutation({ mutationFn: (ids: string[]) => bulkDeleteLineItems(activeScenarioId!, ids), onSuccess: (_data, ids) => { const idSet = new Set(ids); queryClient.setQueryData(['lineItems', activeScenarioId], (old: LineItem[] | undefined) => old ? old.filter((item) => !idSet.has(item.id)) : []); setSelectedLineItemIds(new Set()); toast({ title: ids.length + ' item' + (ids.length > 1 ? 's' : '') + ' deleted' }); }, onError: (error: Error) => { toast({ title: 'Bulk delete failed', description: error.message, variant: 'destructive' }); } });
+  const addBundleComponentMutation = useMutation({
+    mutationFn: ({ parentId, data }: { parentId: string; data: Parameters<typeof addBundleComponent>[1] }) => addBundleComponent(parentId, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lineItems', activeScenarioId] }); toast({ title: 'Component added' }); },
+    onError: (error: Error) => { toast({ title: 'Failed to add component', description: error.message, variant: 'destructive' }); }
+  });
+  const setBundleOverrideMutation = useMutation({
+    mutationFn: ({ itemId, price }: { itemId: string; price: string | null }) => setBundleOverride(itemId, { bundle_override_price: price ?? undefined }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lineItems', activeScenarioId] }); },
+    onError: (error: Error) => { toast({ title: 'Failed to update bundle price', description: error.message, variant: 'destructive' }); }
+  });
   const exportMutation = useMutation({ mutationFn: (scenarioId: string) => createExport(scenarioId, { file_type: 'docx' }), onSuccess: async (exportData) => { try { const response = await downloadExport(exportData.id); const signedUrl = response?.signed_url; if (!signedUrl) throw new Error('No download URL returned from server'); const a = document.createElement('a'); a.href = signedUrl; a.download = 'quote_' + exportData.id + '.docx'; a.click(); a.remove(); toast({ title: 'Export downloaded!' }); } catch (_dlErr) { toast({ title: 'Export saved', description: 'File saved to exports history.' }); } }, onError: (error) => { toast({ title: 'Export failed', description: error.message, variant: 'destructive' }); } });
   const applyTemplateMutation = useMutation({
     mutationFn: () => applyTemplate(selectedTemplateId!, sheetId!),
@@ -189,7 +200,7 @@ const CostingSheetDetail: React.FC = () => {
       {activeScenario && (
         <>
           {selectedLineItemIds.size > 0 && (<div className='mb-2 flex items-center gap-2'><Button variant='destructive' size='sm' onClick={() => bulkDeleteMutation.mutate(Array.from(selectedLineItemIds))} disabled={bulkDeleteMutation.isPending}>{bulkDeleteMutation.isPending ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <Trash2 className='mr-2 h-4 w-4' />}Delete selected ({selectedLineItemIds.size})</Button><Button variant='ghost' size='sm' onClick={() => setSelectedLineItemIds(new Set())}>Clear selection</Button></div>)}
-          <LineItemTable scenarioId={activeScenarioId || ''} lineItems={(lineItemsQuery.data || []) as LineItem[]} onAddLineItem={() => setAddItemOpen(true)} onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)} selectedIds={selectedLineItemIds} onSelectionChange={setSelectedLineItemIds} />
+          <LineItemTable scenarioId={activeScenarioId || ''} lineItems={(lineItemsQuery.data || []) as LineItem[]} onAddLineItem={() => setAddItemOpen(true)} onDeleteLineItem={(id) => deleteLineItemMutation.mutate(id)} selectedIds={selectedLineItemIds} onSelectionChange={setSelectedLineItemIds} onAddBundleComponent={(parentId) => addBundleComponentMutation.mutate({ parentId, data: { section: 'Hardware', description: 'New Component', qty: '1', unit: 'unit', cost_rate: '0', cost_currency: 'SGD', markup_pct: '0', contingency_pct: '0', display_order: 0, is_bundle_parent: false } })} onSetBundleOverride={(itemId, price) => setBundleOverrideMutation.mutate({ itemId, price })} />
         </>
       )}
       <MarginSummary lineItems={(lineItemsQuery.data || []) as LineItem[]} />
