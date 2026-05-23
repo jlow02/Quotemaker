@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.pricing import ComputedLineItemPricing
 
@@ -92,11 +92,12 @@ class BulkDeleteRequest(BaseModel):
     Purpose: Body for DELETE /scenarios/{scenario_id}/line-items/bulk.
              Delete multiple line items by ID in a single request.
              Silently skips IDs that don't belong to the scenario.
-    Inputs: ids (list of str UUIDs)
+             Capped at 200 IDs to prevent DoS via oversized payloads.
+    Inputs: ids (list of str UUIDs, max 200)
     Outputs: N/A
     Owner: [Claude]
     """
-    ids: list[uuid.UUID]
+    ids: list[uuid.UUID] = Field(default=..., max_length=200)
 
 
 class LineItemRead(BaseModel):
@@ -121,8 +122,4 @@ class LineItemRead(BaseModel):
     cost_rate: Decimal
     cost_currency: str
     markup_pct: Decimal
-    contingency_pct: Decimal
-    is_visible: bool
-    is_bundle_parent: bool
-    bundle_override_price: Optional[Decimal] = None
-    is_b
+    contingenc
