@@ -175,12 +175,26 @@ async def _build_export_context(scenario: Scenario, sheet: CostingSheet, db: Ses
         "grand_total_sgd": str(totals.grand_total_sgd),
     }
 
+    # Combine scenario-level notes_exclusions with sheet-level general_notes.
+    # TermsAndNotesPanel saves bullets to sheet.general_notes (newline-separated).
+    # Scenario templates populate scenario.notes_exclusions (JSON array).
+    # Both sources must reach the preview/export template — merge them here.
+    scenario_notes: list[str] = scenario.notes_exclusions or []
+    sheet_note_lines: list[str] = [
+        line.strip()
+        for line in (sheet.general_notes or "").split("\n")
+        if line.strip()
+    ]
+    combined_notes: list[str] = scenario_notes + [
+        n for n in sheet_note_lines if n not in scenario_notes
+    ]
+
     return {
         "sheet": sheet_dict,
         "line_items": line_items_rendered,
         "totals": totals_dict,
         "show_gst": scenario.show_gst,
-        "notes_exclusions": scenario.notes_exclusions or [],
+        "notes_exclusions": combined_notes,
         "logo_url": logo_url,
         "signature_url": signature_url,
         "company_name": company_name,
