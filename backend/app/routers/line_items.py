@@ -16,7 +16,7 @@ from app.models.line_item import LineItem
 from app.models.scenario import Scenario
 from app.models.user import User
 from app.schemas.line_item import (
-    BundleOverridePatch, LineItemCreate, LineItemRead, LineItemUpdate, ReorderRequest
+    BulkDeleteRequest, BundleOverridePatch, LineItemCreate, LineItemRead, LineItemUpdate, ReorderRequest
 )
 from app.services.fx_service import fetch_sheet_overrides, resolve_rate_batch
 from app.services.pricing_service import compute_item_from_orm
@@ -256,6 +256,32 @@ def delete_line_item(
     db.commit()
 
 
+@router.delete("/scenarios/{scenario_id}/line-items/bulk", status_code=status.HTTP_204_NO_CONTENT)
+def bulk_delete_line_items(
+    scenario_id: str,
+    body: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Purpose: Delete multiple line items in a single request. Only deletes items that
+             belong to the scenario and are accessible by the current user.
+             Silently skips IDs that don't match (idempotent for already-deleted items).
+             Sub-components cascade via DB ON DELETE CASCADE.
+    Inputs: scenario_id (str UUID), BulkDeleteRequest (ids: list[UUID])
+    Outputs: 204 No Content
+    Owner: [Claude]
+    """
+    _owned_scenario(scenario_id, current_user.id, db)
+    if not body.ids:
+        return
+    db.query(LineItem).filter(
+        LineItem.id.in_(body.ids),
+        LineItem.scenario_id == scenario_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+
+
 @router.post("/line-items/{line_item_id}/bundle-components", response_model=LineItemRead, status_code=status.HTTP_201_CREATED)
 async def add_bundle_component(
     line_item_id: str,
@@ -335,29 +361,4 @@ async def set_bundle_override(
         selectinload(LineItem.sub_components).selectinload(LineItem.sub_components)
     ).filter(LineItem.id == item.id).first()
     scenario = db.query(Scenario).filter(Scenario.id == item.scenario_id).first()
-    sheet = db.query(CostingSheet).filter(CostingSheet.id == scenario.costing_sheet_id).first()
-    overrides = fetch_sheet_overrides(sheet.id, db)
-    return await _inject_pricing(item, overrides)
-
-
-@router.put("/scenarios/{scenario_id}/line-items/reorder", status_code=status.HTTP_204_NO_CONTENT)
-def reorder_line_items(
-    scenario_id: str,
-    body: ReorderRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Purpose: Bulk update display_order for top-level line items in a scenario.
-    Inputs: scenario_id (str UUID), ReorderRequest (list of {id, display_order})
-    Outputs: 204 No Content
-    Owner: [Claude]
-    """
-    _owned_scenario(scenario_id, current_user.id, db)
-    for entry in body.items:
-        db.query(LineItem).filter(
-            LineItem.id == entry.id,
-            LineItem.scenario_id == scenario_id,
-            LineItem.parent_line_item_id.is_(None),
-        ).update({"display_order": entry.display_order})
-    db.commit()
+    sheet = db.query
