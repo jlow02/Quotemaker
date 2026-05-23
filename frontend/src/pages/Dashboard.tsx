@@ -1,26 +1,26 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// frontend/src/pages/Dashboard.tsx
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-
+import { Copy, Search, Loader2, Plus } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-    CardContent,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
-    DialogHeader,
-  DialogTitle,
   DialogDescription,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
@@ -31,169 +31,352 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { listCostingSheets, createCostingSheet } from '../api/services';
+import { listCostingSheets, createCostingSheet, duplicateCostingSheet } from '../api/services';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
+/**
+ * Interface for the costing sheet data returned from the API.
+ */
 interface CostingSheet {
   id: string;
-  ref_number: string;
-  quote_title: string;
-  date: string;
   client_name: string;
-  contact_name?: string;
+  ref_number: string;
+  status: string;
   created_at: string;
   updated_at: string;
 }
 
-const newCostingSheetSchema = z.object({
-  title: z.string().min(3, { message: 'Title must be at least 3 characters.' }),
-  clientOrganization: z.string().min(3, { message: 'Client organization must be at least 3 characters.' }),
-});
-
-type NewCostingSheetFormValues = z.infer<typeof newCostingSheetSchema>;
+/**
+ * Interface for the filter state used in search.
+ */
+interface FilterState {
+  client_name: string;
+  ref_number: string;
+}
 
 /**
- * @purpose Renders the dashboard displaying a list of costing sheets.
- *          Allows users to create new costing sheets through a modal form.
- * @returns {JSX.Element} The Dashboard page component.
- * @owner [Gemini]
+ * Dashboard page component that displays a list of costing sheets with search, filter, and duplicate functionality.
+ * @returns {JSX.Element} The rendered Dashboard component.
  */
-const Dashboard = () => {
-  const queryClient = useQueryClient();
+const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [isNewSheetModalOpen, setIsNewSheetModalOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [searchClientName, setSearchClientName] = useState<string>('');
+  const [searchRefNumber, setSearchRefNumber] = useState<string>('');
+  const [debouncedClientName, setDebouncedClientName] = useState<string>('');
+  const [debouncedRefNumber, setDebouncedRefNumber] = useState<string>('');
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Debounce the search inputs by 400ms.
+   */
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedClientName(searchClientName);
+      setDebouncedRefNumber(searchRefNumber);
+    }, 400);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchClientName, searchRefNumber]);
+
+  /**
+   * Build the query parameters for the API call.
+   * @returns {object} The query parameters object.
+   */
+  const buildQueryParams = useCallback((): { client_name?: string; ref_number?: string } => {
+    const params: { client_name?: string; ref_number?: string } = {};
+    if (debouncedClientName.trim()) {
+      params.client_name = debouncedClientName.trim();
+    }
+    if (debouncedRefNumber.trim()) {
+      params.ref_number = debouncedRefNumber.trim();
+    }
+    return params;
+  }, [debouncedClientName, debouncedRefNumber]);
+
+  /**
+   * Query to fetch costing sheets with filters.
+   */
   const {
-    data: costingSheets,
+    data: sheets,
     isLoading,
     isError,
     error,
-  } = useQuery<CostingSheet[], Error>({
-    queryKey: ['costingSheets'],
-    queryFn: () => listCostingSheets() as Promise<CostingSheet[]>,
+  } = useQuery<CostingSheet[]>({
+    queryKey: ['costingSheets', buildQueryParams()],
+    queryFn: () => listCostingSheets(buildQueryParams()),
   });
 
-  const createSheetMutation = useMutation<CostingSheet, Error, NewCostingSheetFormValues>({
-    mutationFn: (values: NewCostingSheetFormValues) => createCostingSheet({
-      quote_title: values.title,
-      client_name: values.clientOrganization,
-    }) as Promise<CostingSheet>,
-    onSuccess: (newSheet) => {
-      queryClient.invalidateQueries({ queryKey: ['costingSheets'] });
-      setIsNewSheetModalOpen(false);
+  /**
+   * Mutation to duplicate a costing sheet.
+   */
+  const duplicateMutation = useMutation({
+    mutationFn: (sheetId: string) => duplicateCostingSheet(sheetId),
+    onSuccess: (newSheet: CostingSheet) => {
+      setDuplicatingId(null);
+      toast({
+        title: 'Sheet duplicated',
+        description: 'The costing sheet has been duplicated successfully.',
+      });
       navigate(`/sheets/${newSheet.id}`);
     },
-    onError: (err) => {
-      console.error('Failed to create costing sheet:', err);
-      // Optionally set an error message state to display in the modal
+    onError: () => {
+      setDuplicatingId(null);
+      toast({
+        title: 'Failed to duplicate sheet',
+        description: 'An error occurred while duplicating the sheet. Please try again.',
+        variant: 'destructive',
+      });
     },
   });
 
-  const newSheetForm = useForm<NewCostingSheetFormValues>({
-    resolver: zodResolver(newCostingSheetSchema),
-    defaultValues: {
-      title: '',
-      clientOrganization: '',
-    },
-  });
-
-  const onNewSheetSubmit = async (values: NewCostingSheetFormValues) => {
-    createSheetMutation.mutate(values);
+  /**
+   * Handle the duplicate button click.
+   * @param {string} sheetId - The ID of the sheet to duplicate.
+   * @param {React.MouseEvent} e - The click event.
+   */
+  const handleDuplicate = (sheetId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDuplicatingId(sheetId);
+    duplicateMutation.mutate(sheetId);
   };
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading costing sheets...</div>;
-  }
+  /**
+   * Form schema for creating a new costing sheet.
+   */
+  const formSchema = z.object({
+    client_name: z.string().min(1, 'Client name is required'),
+    ref_number: z.string().min(1, 'Reference number is required'),
+  });
 
-  if (isError) {
-    return <div className="p-8 text-center text-red-500">Error: {error?.message || 'Failed to fetch sheets'}</div>;
-  }
+  /**
+   * Form for creating a new costing sheet.
+   */
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      client_name: '',
+      ref_number: '',
+    },
+  });
+
+  /**
+   * Mutation to create a new costing sheet.
+   */
+  const createMutation = useMutation({
+    mutationFn: (data: { client_name: string; ref_number: string }) =>
+      createCostingSheet(data.client_name, data.ref_number),
+    onSuccess: (newSheet: CostingSheet) => {
+      setDialogOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ['costingSheets'] });
+      toast({
+        title: 'Sheet created',
+        description: 'The costing sheet has been created successfully.',
+      });
+      navigate(`/sheets/${newSheet.id}`);
+    },
+    onError: () => {
+      toast({
+        title: 'Failed to create sheet',
+        description: 'An error occurred while creating the sheet. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  /**
+   * Handle form submission for creating a new costing sheet.
+   * @param {z.infer<typeof formSchema>} values - The form values.
+   */
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    createMutation.mutate(values);
+  };
+
+  /**
+   * Determine if filters are active.
+   */
+  const filtersActive = debouncedClientName.trim() !== '' || debouncedRefNumber.trim() !== '';
+
+  /**
+   * Determine the empty state message.
+   */
+  const emptyMessage = filtersActive
+    ? 'No sheets match your search'
+    : 'Create your first costing sheet to get started.';
 
   return (
-    <div className="container mx-auto p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="container mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Costing Sheets</h1>
-        <Dialog open={isNewSheetModalOpen} onOpenChange={setIsNewSheetModalOpen}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>New Costing Sheet</Button>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Costing Sheet
+            </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Costing Sheet</DialogTitle>
               <DialogDescription>
-                Enter the details for your new costing sheet.
+                Enter the client name and reference number for the new costing sheet.
               </DialogDescription>
             </DialogHeader>
-            <Form {...newSheetForm}>
-              <form onSubmit={newSheetForm.handleSubmit(onNewSheetSubmit)} className="space-y-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
-                  control={newSheetForm.control}
-                  name="title"
+                  control={form.control}
+                  name="client_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Title</FormLabel>
+                      <FormLabel>Client Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Project X Costing" {...field} />
+                        <Input placeholder="Enter client name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <FormField
-                  control={newSheetForm.control}
-                  name="clientOrganization"
+                  control={form.control}
+                  name="ref_number"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Client Organization</FormLabel>
+                      <FormLabel>Reference Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="Acme Corp." {...field} />
+                        <Input placeholder="Enter reference number" {...field} />
                       </FormControl>
-                      <p className='text-sm text-muted-foreground'>
-                        Start typing to search for existing organizations (not implemented in this example).
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={createSheetMutation.isPending}>
-                  {createSheetMutation.isPending ? 'Creating...' : 'Create Sheet'}
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create'
+                  )}
                 </Button>
-                {createSheetMutation.isError && (
-                  <p className="text-sm font-medium text-red-500">
-                    Failed to create: {createSheetMutation.error?.message}
-                  </p>
-                )}
               </form>
             </Form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {costingSheets && costingSheets.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {costingSheets.map((sheet) => (
+      {/* Search Inputs */}
+      <div className="flex gap-4 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by client name"
+            value={searchClientName}
+            onChange={(e) => setSearchClientName(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by ref number"
+            value={searchRefNumber}
+            onChange={(e) => setSearchRefNumber(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      {/* Result Count */}
+      {filtersActive && sheets && (
+        <p className="text-sm text-gray-500 mb-4">
+          {sheets.length} result{sheets.length !== 1 ? 's' : ''}
+        </p>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      )}
+
+      {/* Error State */}
+      {isError && (
+        <div className="text-center py-20">
+          <p className="text-red-500">
+            Failed to load costing sheets. Please try again later.
+          </p>
+          <p className="text-sm text-gray-400 mt-2">
+            {error instanceof Error ? error.message : 'Unknown error'}
+          </p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !isError && sheets && sheets.length === 0 && (
+        <div className="text-center py-20">
+          <p className="text-gray-500">{emptyMessage}</p>
+        </div>
+      )}
+
+      {/* Card Grid */}
+      {!isLoading && !isError && sheets && sheets.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sheets.map((sheet) => (
             <Card
               key={sheet.id}
-              className="cursor-pointer transition-colors hover:border-primary"
+              className="cursor-pointer hover:shadow-lg transition-shadow relative"
               onClick={() => navigate(`/sheets/${sheet.id}`)}
             >
               <CardHeader>
-                <CardTitle className="text-xl">{sheet.quote_title}</CardTitle>
-                <CardDescription>{sheet.client_name}</CardDescription>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg">{sheet.client_name}</CardTitle>
+                    <CardDescription>{sheet.ref_number}</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => handleDuplicate(sheet.id, e)}
+                    disabled={duplicatingId === sheet.id}
+                  >
+                    {duplicatingId === sheet.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="flex items-center justify-between">
-                <Badge variant="outline">{sheet.ref_number}</Badge>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {sheet.created_at ? format(new Date(sheet.created_at), 'MMM dd, yyyy') : '—'}
-                </span>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{sheet.status}</Badge>
+                  <span className="text-xs text-gray-400">
+                    Created: {format(new Date(sheet.created_at), 'MMM dd, yyyy')}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  Updated: {format(new Date(sheet.updated_at), 'MMM dd, yyyy')}
+                </p>
               </CardContent>
             </Card>
           ))}
-        </div>
-      ) : (
-        <div className="mt-12 text-center text-gray-600 dark:text-gray-400">
-          <p className="text-lg">No costing sheets found.</p>
-          <p className="mt-2">Click "New Costing Sheet" to create your first one!</p>
         </div>
       )}
     </div>
